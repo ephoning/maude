@@ -1,0 +1,23 @@
+mod UPDOWN-TERM-TEST is
+
+    pr META-LEVEL .
+    inc QID .
+    inc CONFIGURATION .
+
+    subsort Qid < Oid .
+
+    op MyClass : -> Cid [ctor] .
+
+
+    op MyClassInstance : -> Object .
+    eq MyClassInstance = < 'Foo : MyClass | none > .
+
+endm
+
+red < 'Foo : MyClass | none > .
+red upTerm( < 'Foo : MyClass | none > ) .
+red downTerm(upTerm( < 'Foo : MyClass | none > ), 'error) .
+
+red MyClassInstance .
+red upTerm( MyClassInstance ) .
+red downTerm(upTerm( MyClassInstance ), 'error) .

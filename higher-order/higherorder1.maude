@@ -1,0 +1,38 @@
+***
+*** experiment in higher order 'functions'
+*** source: http://maude.cs.uiuc.edu/pipermail/maude-help/2006-January/000154.html
+***
+
+fmod AP{X :: TRIV, Y :: TRIV} is
+  sort Func{X,Y} .
+  op _[_] : Func{X,Y} X$Elt -> Y$Elt [prec 17] .
+endfm
+
+fmod LIST-MAP{X :: TRIV, Y :: TRIV} is
+  inc AP{X,Y} .
+  pr LIST{X} .
+  pr LIST{Y} .
+  var E : X$Elt .
+  var L : List{X} .
+  var F : Func{X,Y} .
+  op map : List{X} Func{X,Y} -> List{Y} .
+  eq map(nil, F) = nil .
+  eq map(E L, F) = F[E] map(L, F) .
+endfm
+
+fmod TEST is
+  pr LIST-MAP{Nat,String} .
+  pr CONVERSION .
+  var N : Nat .
+  op ordinal : -> Func{Nat,String} .
+  eq ordinal[N] = string(N, 10) +
+    if (N quo 10) rem 10 == 1 then "th"
+    else
+      if N rem 10 == 1 then "st"
+      else if N rem 10 == 2 then "nd"
+      else if N rem 10 == 3 then "rd"
+      else "th" fi fi fi
+    fi .
+endfm
+
+red map(1 2 3 5 7 11 13 17 19 23, ordinal) .

@@ -1,0 +1,90 @@
+*** note: MAUDE_LIB set to '/home/ephoning/projects/maude/higher-order' 
+
+load /Volumes/Data/ehoning/projects/maude/higher-order/ho-func3.fm
+
+(fmod TEST is
+
+	inc HOF{Nat,String} .
+	pr CONVERSION .
+	
+	vars N M : Nat .
+
+	*** single 1 arg
+	op double : -> F{Nat,Nat} .
+	eq double N = N * 2 .
+
+	op show : -> F{Nat,String} .
+	eq show N = "<" + string(N,10) + ">" .
+
+	*** composed
+	op showdouble : -> F{Nat,String} .
+	eq showdouble = show . double .
+
+	*** single 2 args
+	op times : -> F{Nat,Nat,Nat} .
+	eq times N M = N * M .
+	
+	*** curried application
+	op timestwo : -> F{Nat,Nat} .
+	eq timestwo = times 2 .
+
+	op lessOrMore : -> F{Nat,Nat,String} .
+	eq lessOrMore N M = if (N + M) < 10 then "less" else "more" fi .
+	
+	*** curried func construction
+	op plusT : -> F{Tuple{Nat,Nat},Nat} .
+	eq plusT (N,M) = N + M .
+	
+	*** uncurried func construction
+	op plusC : -> F{Nat,Nat,Nat} .
+	eq plusC N M = N + M .
+	
+	*** curried application derived from uncurried function
+	op plusTtwo : -> F{Nat,Nat} .
+	eq plusTtwo = curry plusT 2 .
+	
+	
+endfm)
+
+(red showdouble 42 .)
+(red (double . double . double . double) 42 .)
+
+(red map double 1 2 3 4 5 .)
+(red map (double . double) 1 2 3 4 5 .)
+
+(red zip (0 1 2 3) (10 11 12 13) .)
+
+(red zipWith times (1 2 3 4) (10 11 12 13) .)
+
+(red zipWith lessOrMore (1 2 3 4) (6 7 8 9) .)
+
+(red times 2 21 .)
+
+(red timestwo 21 .)
+
+---(red unzip nil:List{Tuple{Nat,Nat}} .)
+---set trace on .
+(red unzip ((1,2) (3,4)) .)
+---set trace off .
+(red unzip ((1,2) (2,4) (3,6) (4,8) (5,10)) .)
+(red unzip ((1,"a") (2,"b") (3,"c") (4,"d") (5,"e")) .)
+
+(red curry plusT .)
+(red (curry plusT) 2 3 .)
+(red curry plusT 2 3 .)
+
+(red uncurry plusC .)
+(red (uncurry plusC) (2,3) .)
+(red uncurry plusC (2,3) .)
+
+(red plusTtwo 10 .)
+
+
+(red foldr plusC 0 (1 2 3 4 5) .)
+(red foldr (curry plusT) 0 (1 2 3 4 5) .)
+(red foldr times 1 (1 2 3 4 5) .)
+
+(red foldl plusC 0 (1 2 3 4 5) .)
+
+(red (id . double . id . id) 21 .)
+

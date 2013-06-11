@@ -1,0 +1,50 @@
+--- EPH 09/02/09
+--- funcs + currying
+
+fmod AP2{X :: TRIV, Y :: TRIV} is
+  sorts Func{X,Y} .
+  op __ : Func{X,Y} X$Elt -> Y$Elt [prec 17] .
+endfm
+fmod AP3{X :: TRIV, Y :: TRIV, Z :: TRIV} is
+  pr AP2{Y,Z} .
+  sorts Func{X,Y,Z} .
+  op __ : Func{X,Y,Z} X$Elt -> Func{Y,Z} [prec 17] .  
+endfm
+
+fmod TEST-1 is
+  inc NAT .
+  pr AP2{Nat,Nat} .
+  pr AP3{Nat,Nat,Nat} .
+  vars M N : Nat .
+  op mult : -> Func{Nat,Nat,Nat} .
+  eq mult N M = N * M .
+  --- a "partially applied" version of 'mult'  (note the point free style)
+  op mult6 : -> Func{Nat,Nat} .
+  eq mult6 = mult 6 .
+endfm
+
+fmod TEST-2 is
+  pr NAT .
+  pr CONVERSION .
+  pr AP2{Nat,String} .
+  pr AP3{String,Nat,String} .
+  var S : String .
+  var N : Nat .
+  op foo : -> Func{String,Nat,String} .
+  eq foo S N = S + string(N, 10) + S .
+  --- a "partially applied" version of 'foo'  (again point free)
+  op foobar : -> Func{Nat,String} .
+  eq foobar = foo "bar" .
+endfm
+
+--- TEST-1
+red in TEST-1 : mult 7 6 .
+red in TEST-1 : mult6 7 .
+--- this should fail (due to typing error) with "... no parse for term"
+--- red in TEST-1 : mult6 "7" .
+
+--- TEST-2
+red in TEST-2 : foo "baz" 42 .
+red in TEST-2 : foobar 42 .
+--- this should fail (due to typing error) with "... no parse for term"
+--- red in TEST-2 : foobar "42" .

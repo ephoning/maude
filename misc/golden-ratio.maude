@@ -1,0 +1,22 @@
+(***
+    calc golden ratio based on ratio of 2 consequtive fib numbers
+    - takes index into fib sequence as argument
+      i.e., larger index results in larger precision
+)
+
+fmod GOLDEN-RATIO is
+    pr CONVERSION .
+    pr INT .
+    pr FLOAT .
+    var i : Int .
+    op fib_ : Int -> Int [memo] .
+    eq fib 0 = 0 .
+    eq fib 1 = 1 .
+    eq fib i = fib (i - 1) + fib (i - 2) .
+    op gr_ : Int -> Float .
+    eq gr i = float (fib i) / float (fib (i - 1)) .
+endfm
+
+set show timing on .
+red gr 100 .
+

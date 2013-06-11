@@ -1,0 +1,56 @@
+*** EPH 11/15/10 next step: reorganize/expand; searching for an optimal solution
+*** rationale: experiment with searching for an 'optimal' solution; i.e., minimal value for largest track 'from' time across all tracks
+***
+*** state: working/done
+
+mod CS-EXP-2 is
+    inc QID .
+    inc CONFIGURATION .
+    pr BOOL .
+    pr INT .
+
+    subsort Qid < Oid .
+
+    op Task : -> Cid [ctor] .
+    op Track : -> Cid [ctor] .
+    op Accu : -> Cid [ctor] .
+
+    op from-ceiling :_ : Int -> Attribute [ctor gather (&)] .
+    op from :_ : Int -> Attribute [ctor gather (&)] .
+    op to :_ : Int -> Attribute [ctor gather (&)] .
+    op duration :_ : Int -> Attribute [ctor] .
+    op track :_ : Oid -> Attribute [ctor] .
+
+    op initial-config : -> Configuration .
+    eq initial-config =
+	< 'Accu : Accu | from-ceiling : -1 > 
+	< 'TrackA : Track | from : 0 >
+	< 'TrackB : Track | from : 0 >
+	< 'Task1 : Task | from : 0 , to : 0 , duration : 7 , track : 'none >
+	< 'Task2 : Task | from : 0 , to : 0 , duration : 42 , track : 'none > .
+
+    vars Ta Tr : Oid .
+    vars AcFromCeil TrFrom TaFrom TaTo TaDur : Int .
+
+    rl [assign] :
+	< 'Accu : Accu | from-ceiling : AcFromCeil > 
+	< Tr : Track | from : TrFrom >
+	< Ta : Task | from : TaFrom , to : 0 , duration : TaDur >
+    =>
+	< 'Accu : Accu | from-ceiling : max( AcFromCeil, TrFrom + TaDur) > 
+	< Tr : Track | from : TrFrom + TaDur >
+	< Ta : Task | from : TrFrom , to : (TrFrom + TaDur) - 1 , duration : TaDur , track : Tr > .
+
+endm
+
+**** example "resolutions" ****
+
+*** basic 'rewrite'
+rew initial-config .
+
+*** search for all solutions ***
+search initial-config =>! C:Configuration .
+
+*** search for a solution matching a particular constraint ***
+***search initial-config =>! C:Configuration < 'Task1 : Task | A:AttributeSet , track : TrackId:Oid > such that TrackId:Oid = 'TrackB .
+search initial-config =>! C:Configuration < 'Accu : Accu | from-ceiling : FC:Int > such that FC:Int < 49 .

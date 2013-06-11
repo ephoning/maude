@@ -1,0 +1,6 @@
+fmod POLY {X :: TRIV }
+
+var V : XElt .
+
+op 
+endfm

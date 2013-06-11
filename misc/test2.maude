@@ -1,0 +1,49 @@
+***(
+fmod EDDIE is
+    sort ED-PARTIAL ED ES .
+    subsort ED-PARTIAL < ED .
+    op ed : -> ED [ctor] .
+    op es : -> ES [ctor] .
+    op _e_ : ED ES -> ED .
+    var x : ED .
+    var y : ES .
+    eq x e y = ed .
+endfm
+)
+
+*** note that we cannot use e.g., '⇒' for operator notation
+*** maude is not UTF-8 aware; all token are to consist of sequences of ASCII chars
+fmod NOTATION-EXPERIMENT is
+    sort ED-PARTIAL ED ES .
+    subsort ED-PARTIAL < ED .
+    op ed : -> ED [ctor] .
+    op es : -> ES [ctor] .
+    op _⇒_ : ED ES -> ED .
+    var x : ED .
+    var y : ES .
+    eq x ⇒ y = ed .
+endfm
+*** the above does not produce an error when loaded in the maude shell, but
+*** the shell does not accept our entry of '⇒' as part of an expression to be reduced
+
+fmod MY-NAT is
+    protecting NAT .
+    
+    var n : Nat .
+    
+    *** note the operator definition without unserscore to indicate argument location
+    *** this means it is to be used in (bracketed) "prefix":
+    *** example:     red fac(42) .
+    op fac : Nat -> Nat [memo].    
+    eq fac(0) = 1 .
+    eq fac(s n) = (s n) * fac(n) .
+
+    *** note the operator definition with unserscore to indicate argument location
+    *** this mens it is to be used without brackets
+    *** example:    red ffac 42 .
+    op ffac_ : Nat -> Nat [memo].    
+    eq ffac 0 = 1 .
+    eq ffac (s n) = (s n) * (ffac n) .
+endfm
+
+***red in LIST size ( List::Nat 42 ) .

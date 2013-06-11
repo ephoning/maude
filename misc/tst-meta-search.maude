@@ -1,0 +1,113 @@
+mod MY-META-SEARCH is
+    inc META-LEVEL .
+    inc QID .
+    inc CONFIGURATION .
+    inc INT .
+
+    subsort Qid < Oid .
+
+    op Task : -> Cid [ctor] .
+    op cnt :_ : Int -> Attribute [ctor] .
+
+    rl [RULE-1] :
+	< 'A : Task | cnt : 1 >
+    =>
+	< 'A : Task | cnt : 2 > .
+
+    rl [RULE-2] :
+	< 'A : Task | cnt : 2 >
+    =>
+	< 'A : Task | cnt : 3 > .
+
+    *** projection functions
+    op getVariable : Assignment -> Variable .
+    eq getVariable( V:Variable <- T:Term ) = V:Variable .
+    op getTerm : Assignment -> Term .
+    eq getTerm( V:Variable <- T:Term ) = T:Term .
+
+endm
+
+mod TST-MY-META-SEARCH is
+    inc MY-META-SEARCH .
+
+    op MyModule : -> Module .
+    eq MyModule = upModule('MY-META-SEARCH, false) .
+    
+    op MyStartTerm : -> Term .
+    eq MyStartTerm = upTerm( < 'A : Task | cnt : 1 > ) .
+
+    op MyEndTerm : -> Term .
+    *** eq MyEndTerm = upTerm( < 'A : Task | cnt : I:Int > ) . --- fails due to attempting to use I:Int before it is bound (*)
+    eq MyEndTerm = '<_:_|_>[''A.Sort,'Task.Cid,'cnt`:_['I:Int]] . --- therefore: pre-construct its meta-representation
+    
+    *** THIS IS AN IMPORTANT FEATURE!!!
+    *** - 'hard coded' template (in meta-representation format) for the term
+    *** - at 'run time', substitute the piece that is is to vary (the actual numeric value, in this case)
+    *** note: this works because a 'Term' is composed using a constructor, just like other instances of data types (i.e., ALL pieces
+    ***       are amenable to 'composition' / 'injection')
+    op ConstructCondition : Int -> Condition .
+    eq ConstructCondition(V:Int) =  '_<_['I:Int, upTerm(V:Int)] = 'true.Bool .
+
+    op MySearch : Int -> ResultTriple .
+    eq MySearch(V:Int) = metaSearch( MyModule , MyStartTerm , MyEndTerm , ConstructCondition(V:Int) , '! , unbounded , 0 ) .
+
+    op MyTest : Int -> Term .
+    eq MyTest(V:Int) = getTerm(getSubstitution(MySearch(V:Int))) .
+
+    op MyTestFinal : Int -> Int .
+    eq MyTestFinal(V:Int) = downTerm(MyTest(V:Int), -1) .
+
+    ***************************************
+
+    *** control loop: try to find the lowest target number for which the search still succeeds
+    op UpperBound : -> Int .
+    eq UpperBound = 42 .
+
+
+    op findMinimumSolution : -> Int .
+    eq findMinimumSolution = solve(UpperBound, UpperBound) .
+
+    op solve : Int Int -> Int .
+    eq solve(Try:Int, Best:Int) = solve'(Try:Int, MyTestFinal(Try:Int), Best:Int) .
+
+    op solve' : Int Int Int -> Int .
+    eq solve'(Try:Int, Result:Int, Best:Int) =
+      if Result:Int == -1 then Best:Int else solve'(Try:Int + -1, MyTestFinal(Try:Int + -1), Result:Int) fi .
+
+endm
+
+*** search [1] < 'A : Task | cnt : 1 > =>! < 'A : Task | cnt : 2 > .
+*** search [1] < 'A : Task | cnt : 1 > =>! < 'A : Task | cnt : I:Int > .
+*** search [1] < 'A : Task | cnt : 1 > =>! < 'A : Task | cnt : I:Int > such that I:Int < 4 .
+
+*** *** OK:
+*** red in TST-META-SEARCH : metaSearch (
+***   upModule('TST-META-SEARCH, false),
+***   upTerm( < 'A : Task | cnt : 1 > ),
+***   upTerm( < 'A : Task | cnt : 3 > ),
+***   nil,
+***   '!, unbounded, 0 ) .
+
+*** *** OK:
+*** red in TST-META-SEARCH : metaSearch (
+***   upModule('TST-META-SEARCH, false),
+***   upTerm( < 'A : Task | cnt : 1 > ),
+***   upTerm( < 'A : Task | cnt : I:Int > ),
+***   nil,
+***   '!, unbounded, 0 ) .
+
+*** *** OK:
+*** red in TST-META-SEARCH : metaSearch (
+***   upModule('TST-META-SEARCH, false),
+***   upTerm( < 'A : Task | cnt : 1 > ),
+***   upTerm( < 'A : Task | cnt : I:Int > ),
+***   'I:Int = upTerm(3) ,
+***   '!, unbounded, 0 ) .
+
+*** *** OK (this is what I need for meta search in the constraint satisfaction solver!!!)
+*** red in TST-META-SEARCH : metaSearch (
+***   upModule('TST-META-SEARCH, false),
+***   upTerm( < 'A : Task | cnt : 1 > ),
+***   upTerm( < 'A : Task | cnt : I:Int > ),
+***   upTerm( I:Int < 4) = 'true.Bool,
+***   '!, unbounded, 0 ) .

@@ -1,0 +1,50 @@
+fmod FOO is
+
+sorts Foo FooSet .
+subsort Foo < FooSet .
+
+vars F F1 F2 : Foo .
+vars FS FS' FS1 FS2 : FooSet .
+
+op nil : -> FooSet . --- empty set
+ops a b c d e f : -> Foo .
+--- provides construction + union
+op __ : FooSet FooSet -> FooSet [ctor comm assoc id: nil] .
+--- idempotency
+var E : Foo .
+eq E E = E .
+--- membership
+op _in_ : Foo FooSet -> Bool .
+eq F in F FS = true .
+eq F in FS = false [owise] .
+--- set equality: no need to define; is "built-in"
+--- op _==_ : FooSet FooSet -> Bool .
+--- eq FS == FS = true .
+--- eq FS == FS' = false [owise] .
+--- difference (all elements in 1st set not in 2nd set)
+op _diff_ : FooSet FooSet -> FooSet .
+eq FS1 diff FS2 = FS1 diff FS2 acc nil .
+op _diff_acc_ : FooSet FooSet FooSet -> FooSet .
+eq nil diff FS2 acc FS = FS .
+eq FS1 diff nil acc FS = FS1 FS .
+eq (F1 FS1) diff (F1 FS2) acc FS = FS1 diff FS2 acc FS .
+eq (F1 FS1) diff FS2 acc FS = FS1 diff FS2 acc F1 FS [owise] .    
+endfm
+
+fmod FOO-TEST is
+including FOO .
+
+sort BoolList .
+
+var B B' : Bool .
+op _/\_ : Bool Bool -> Bool .
+eq false /\ B = false .
+eq B /\ false = false .
+eq B /\ B' = true [owise] .
+op test : BoolList -> Bool .
+
+ops test1 test2 test3 : -> Bool .
+eq test1 = ((a in (a b c)) == true) .
+eq test2 = ((a in (b c)) == false) .
+eq test3 = (((a b c) diff (b c d)) == f) .
+endfm

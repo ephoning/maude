@@ -1,0 +1,69 @@
+(***
+    define (arithemtic) facts about non-ground variables
+
+    todo:
+    - extend to complete assoc/comm/ident to support 'all' composite terms
+)
+
+fmod INT-NON-GROUND is
+    protecting INT .
+    protecting RAT .
+    protecting NAT .
+    protecting BOOL .
+
+    vars I I' I'' : Int .
+    *** vars I J K : Int . *** note: NOT machine int
+
+    ****** some arithmetic "facts" *******
+    *** adding a number and its complement results in 0
+    eq I + (- I) = 0 .
+
+    *** multiplication facts ***
+    eq I * 0 = 0 .
+
+    *** division facts ***
+    vars R R' R'' : Rat .
+    vars NZR NZR' : NzRat .
+    ceq R / NZR' > 1 = true if R > NZR' .
+
+    *** unit division
+    eq R / NZR = 1 .
+    ceq R / NZR' = 1 if R = NZR' .
+
+    *** 
+    ceq I + I' > I'' = true if (I > I'') /\ (I' > 0) .
+
+    *** some "free" vars to use in reduction terms
+    vars X Y : Int .
+
+    *** an INT variable greater that 0
+    *** sort PosInt .
+    *** subsort PosInt < Int .
+    *** var PI : Int .
+    *** cmb PI : PosInt if PI > 0 .
+    *** ceq I + PI > 0 = true if I > 0 .
+
+    var N : Nat .
+    ceq I + N > 0 = true if I > 0 .
+    ceq I + N >= 0 = true if I + N > 0 .
+
+endfm
+
+*** red 1 + 1 .
+
+*** solvable even with non ground var; expecting 0
+red X + (- X) .
+*** red - X + X .
+
+*** expecting 42
+*** note: commutativity of '+' used to re-order and reduce
+red - X + 42 + X .
+
+*** expecting Bool ("undecidable with unground integer term)
+red X + 42 > 13 .
+
+*** expecting full original term
+red - X + Y .
+
+*** expecting true
+red 42 + N >= 0 .

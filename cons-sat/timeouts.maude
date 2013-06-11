@@ -1,0 +1,82 @@
+***
+*** experimental: construct values for appropriate timeout values for interconnected work items
+*** rationale: BofA needs to build a system with SLAs around response times
+***
+*** inputs:
+***     work item node
+***         - minimal/avg elapsed time to complete work
+***         - timeout
+***         - max retries
+***         - interruptable?
+***         - child nodes
+***     node relationship types: seq vs. par
+***
+***
+*** NOTE: try for generality as much as possible => constraint satisfaction system
+***
+
+--- test with:
+---    rew 1 2 3 4 2 3 1 1 .
+---  or
+---    search [1] in TEST : 1 2 3 4 1 1 =>* 1 2 4 3 .     --- notice desired Bag content ordering is inconsequential due to commutativity
+---    show path <resulting state number> .
+mod TEST is
+    inc INT .
+    --- inc LIST*{Int} .
+    sort Bag .
+    subsort Int < Bag . --- a 'bag' / multiset
+    --- associativity: i.e., freely mix individual elements and Bags to construct 'total' Bag
+    --- commutativity: i.e. freely re-order Bag elements
+    op __ : Bag Bag -> Bag [assoc comm] .
+    var N M : Int .
+    --- remove double Bag elements
+    rl [remdoubles] : N N => N .
+    ---crl [remdoubles2] : N M => N if N = M .
+endm
+
+
+*** we cannot define a rule resembling  X Y Z => .  (is seen as incomplete)
+*** thus, we need an 'identity' element to signal "empty"
+
+mod TEST-REM is
+    inc INT .
+    sort Bag .
+    subsort Int < Bag . --- a 'bag' / multiset
+    op __ : Bag Bag -> Bag [assoc comm] .
+    var N M : Int .
+    --- remove repeated elements completely
+    rl [remdoubles] : N N => -1 . --- note: should define an identity element to signal "nothing"
+endm
+
+--- representation of time-constrained process steps
+--- proc steps can potentially fine-grained further (i.e., nested) => nested lists
+--- parallel (i.e., independent) proc steps => order inconsequential => set
+--- sequential (i.e., dependent) proc steps => order significant => list
+---
+--- single step representation: mixed-type list (element index dictates type + semantics)
+
+---view List{A :: TRIV} from TRIV to LIST{A} is
+---	sort Elt to List{A} .
+---endv
+
+mod PSTEP is
+    sort PStep .
+endm
+
+view PStep from TRIV to PSTEP is
+    sort Elt to PStep .
+endv
+
+mod CONS-SAT is
+    inc INT .
+    inc STRING .
+    inc PSTEP .
+    
+    pr LIST{PStep} .
+    op <___> : String Int List{PStep} -> PStep . 
+endm
+--- test with:
+*** Maude> rew < "eddie" 42 nil > .
+*** Maude> rew < "eddie" 42 < "foo" 123 nil >  > .
+*** Maude> rew < "eddie" 42 ( < "foo" 123 nil > < "bar" 456 nil > ) > .  <-- give list construction higher precedence than PSet constructor => no '('')' needed
+

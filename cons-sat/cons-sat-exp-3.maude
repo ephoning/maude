@@ -1,0 +1,96 @@
+*** EPH 11/15/10 next step: reorganize/expand; introduce task start dependencies 
+*** rationale: task can be inter-dependent: only start task X after task Y completed
+***
+*** state: working/done (for at most a single dependency)
+***
+*** roadmap:
+*** - support multiple dependencies
+*** - refactor to improve abstraction (e.g., "externalize" track 'from' calculation)
+*** - refactor to make 'track' an instance of a 'resource'
+*** - add support for additional 'resource' types
+
+mod CS-EXP-3 is
+    inc QID .
+    pr BOOL .
+    pr INT .
+    pr CONFIGURATION .
+
+    subsort Qid < Oid .
+
+    sort Tasks .
+    subsort Qid < Tasks . 
+    op __ : Tasks Tasks -> Tasks [ctor assoc comm] .
+    op none : -> Tasks .
+
+
+    op Task : -> Cid [ctor format (m on) ] .
+    op TaskDeps : -> Cid [ctor format (m on) ] .
+    op Track : -> Cid [ctor format (m on) ] .
+    op Accu : -> Cid [ctor format (m on) ] .
+
+    op from-ceiling :_ : Int -> Attribute [ctor format (d d b! o) gather (&)] .
+    op from :_ : Int -> Attribute [ctor format (d d g! o) gather (&)] .
+    op to :_ : Int -> Attribute [ctor format (d d r! o) gather (&)] .
+    op duration :_ : Int -> Attribute [ctor] .
+    op track :_ : Oid -> Attribute [ctor] .
+    op task :_ : Oid -> Attribute [ctor] .
+    op tasks :_ : Tasks -> Attribute [ctor] .
+
+    op initial-config : -> Configuration .
+    eq initial-config =
+	< 'Accu : Accu | from-ceiling : -1 > 
+	< 'TrackA : Track | from : 0 >
+	< 'TrackB : Track | from : 0 >
+	< 'Task1 : Task | from : 0 , to : 0 , duration : 7 , track : 'none >
+	< 'Task2 : Task | from : 0 , to : 0 , duration : 8 , track : 'none > 
+	< 'Task3 : Task | from : 0 , to : 0 , duration : 9 , track : 'none >
+	< 'Task1Deps : TaskDeps | task : 'Task1 , tasks : none >
+	< 'Task2Deps : TaskDeps | task : 'Task2 , tasks : none >
+	< 'Task3Deps : TaskDeps | task : 'Task3 , tasks : 'Task1 > .
+
+    vars Ta TaD Tr PreTa PreTaTr : Oid .
+    vars AcFromCeil TrFrom : Int .
+    vars TaFrom TaTo TaDur : Int .
+    vars PreTaFrom PreTaTo PreTaDur : Int .
+    var Tsks : Tasks .
+
+    --- assign track to a task without pre-task dependency
+    rl [assign-no-deps] :
+	< Tr : Track | from : TrFrom >
+	< Ta : Task | from : 0 , to : 0 , duration : TaDur , track : 'none  >
+ 	< TaD : TaskDeps | task : Ta , tasks : none >
+	< 'Accu : Accu | from-ceiling : AcFromCeil > 
+    =>
+	< Tr : Track | from : TrFrom + TaDur >
+	< Ta : Task | from : TrFrom , to : (TrFrom + TaDur) - 1 , duration : TaDur , track : Tr >
+ 	< 'TaD : TaskDeps | task : Ta , tasks : none >
+	< 'Accu : Accu | from-ceiling : max( AcFromCeil, TrFrom + TaDur) > .
+
+    --- assign track to a task whose pre-task has already been assigned a track
+    crl [assign-deps] :
+	< Tr : Track | from : TrFrom >
+	< Ta : Task | from : 0 , to : 0 , duration : TaDur , track : 'none >
+ 	< TaD : TaskDeps | task : Ta , tasks : PreTa >
+	< PreTa : Task | from : PreTaFrom , to : PreTaTo , duration : PreTaDur , track : PreTaTr >
+	< 'Accu : Accu | from-ceiling : AcFromCeil > 
+    =>
+	< Tr : Track | from : max( TrFrom, (PreTaTo + 1) ) + TaDur >
+	< Ta : Task | from : max( TrFrom, (PreTaTo + 1) ) , to : ( max( TrFrom,(PreTaTo + 1) ) + TaDur ) - 1 , duration : TaDur , track : Tr >
+ 	< TaD : TaskDeps | task : Ta , tasks : PreTa >
+	< PreTa : Task | from : PreTaFrom , to : PreTaTo , duration : PreTaDur , track : PreTaTr >
+	< 'Accu : Accu | from-ceiling : max( AcFromCeil, max(TrFrom, (PreTaTo + 1) ) + TaDur) > 
+      if PreTaTr =/= 'none .
+
+endm
+
+**** example "resolutions" ****
+
+*** basic 'rewrite'
+rew initial-config .
+
+*** search for all solutions ***
+search initial-config =>! C:Configuration .
+
+*** search for a solution matching a particular constraint ***
+***search initial-config =>! C:Configuration < 'Task1 : Task | A:AttributeSet , track : TrackId:Oid > such that TrackId:Oid = 'TrackB .
+search initial-config =>! C:Configuration < 'Accu : Accu | from-ceiling : FC:Int > such that FC:Int <= 16 .

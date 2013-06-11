@@ -1,0 +1,21 @@
+fmod POLYTEST is
+    protecting BOOL .
+    
+    sort Ptop Psub .
+---    subsort Ptop < Psub .
+    
+    op ptop : -> Ptop .
+    op psub : -> Psub .
+    
+    op x_ : Ptop -> Bool .
+    op x_ : Psub -> Bool .
+
+---    op y_ : Bool -> Ptop .
+---    op y_ : Bool -> Psub .
+    
+    sort Ident Trm IdentList Command .
+    subsort Ident < Trm < IdentList .
+    op _:_ : Trm Trm -> Trm [ prec 40 gather (e E) ] .
+    op _:_ : IdentList Trm -> Command [ prec 100 gather (& &) ] .
+    
+endfm

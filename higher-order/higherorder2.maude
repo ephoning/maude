@@ -1,0 +1,52 @@
+***
+*** experiment in higher order 'functions'
+*** 
+*** state: broken
+*** todo: self educate on sorts, views, etc.
+***
+
+fmod AP{X :: TRIV, Y :: TRIV} is
+*** one param function
+  sort Func{X,Y} .
+  op _[_] : Func{X,Y} X$Elt -> Y$Elt [prec 17] .
+*** no param function
+  sort FFunc{X} .
+  op _[] : FFunc{X} -> X$Elt [prec 17] .
+endfm
+
+fmod MAP{X :: TRIV, Y :: TRIV} is
+  inc AP{X,Y} .
+  pr LIST{X} .
+  pr LIST{Y} .
+  var E : X$Elt .
+  var L : List{X} .
+  var F : Func{X,Y} .
+  op map : List{X} Func{X,Y} -> List{Y} .
+  eq map(nil, F) = nil .
+  eq map(E L, F) = F[E] map(L, F) .
+  
+endfm
+
+fmod TEST1 is
+  pr MAP{Nat,Nat} .
+  var N : Nat .
+  op double : -> Func{Nat,Nat} .
+  eq double[N] = N + N .
+endfm
+red map(1 2 3 5 7 11 13 17 19 23, double) .
+
+fmod TEST2{X :: TRIV} is
+  inc AP{X,X} .
+***  pr MAP{Func{Nat},Nat} .
+  op one : -> FFunc{Nat} .
+  eq one[] = 1 .
+  op two : -> FFunc{Nat} .
+  eq two[] = 2 .
+  
+***  var F : Func{Nat} .
+***  op add : List{FFunc{Nat}} -> Nat .
+***  eq add[F] = F[] .
+endfm
+
+red one
+***red map(one two, add) .

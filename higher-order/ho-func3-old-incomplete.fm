@@ -1,0 +1,156 @@
+*** EPH 04/11/10
+*** 3nd attempt at higher order functions (parameterized): clean up attempt
+*** Note: evaluate in full Maude (as we use TUPLEs)
+***
+*** TODO:
+*** - more fp idiomatic functions
+***		- generlized foldl/r    CURRENTLY BROKEN
+***     - ???
+***	- multiple return values
+*** - lazy evaluation?
+***
+*** Documentation / comments
+*** 1 arrange for even a multi arg function to ALWAYS be applied in curried mode; that is we do NOT add, e.g.,
+***     op ___ : F{A,B,C} A$Elt B$Elt -> C$Elt [prec 17] .
+***     instead, ONLY consume 1 arg at a time
+***
+*** 2 vital in order to allow disambiguation; sort ordering guarantees presence of a least sort 
+***
+
+(view Tuple{A :: TRIV, B :: TRIV} from TRIV to TUPLE[2]{A,B} is
+	sort Elt to Tuple{A,B} .
+endv)
+
+(view List{A :: TRIV} from TRIV to LIST{A} is
+	sort Elt to List{A} .
+endv)
+
+*** 1 arg function
+(fmod HOF-F1{A :: TRIV, B :: TRIV} is
+  sort F{A,B} .
+  op __ : F{A,B} A$Elt -> B$Elt [prec 17] .	*** application
+endfm)
+
+*** 2 arg function
+(fmod HOF-F2{A :: TRIV, B :: TRIV, C :: TRIV} is
+  sort F{A,B,C} .
+  sort F{B,C} .
+  op __ : F{A,B,C} A$Elt -> F{B,C} [prec 17] .	*** application; see: 1
+endfm)
+
+*** 3 arg function
+(fmod HOF-F3{A :: TRIV, B :: TRIV, C :: TRIV, D :: TRIV} is
+  sort F{A,B,C,D} .
+  sort F{B,C,D} .
+  op __ : F{A,B,C,D} A$Elt -> F{B,C,D} [prec 17] .	*** application; see: 1
+endfm)
+
+*** higher order function libraries ***
+
+(fmod HOF-LIB1{A :: TRIV, B :: TRIV} is
+	*** data types
+	pr LIST{Tuple{A,A}} .
+	pr LIST{Tuple{A,B}} .
+	pr TUPLE[2]{List{A},List{A}} .
+	pr TUPLE[2]{List{A},List{B}} .
+
+	inc HOF-F1{A,A} .
+	inc HOF-F1{A,B} .
+	inc HOF-F1{Tuple{A,B},A} .
+	inc HOF-F2{A,A,A} .  *** TEMP
+	inc HOF-F2{A,B,B} .
+
+	subsort Tuple{A,A} < Tuple{List{A},List{A}} .	*** see: 2
+	subsort Tuple{A,B} < Tuple{List{A},List{B}} .	*** see: 2
+	
+	*** composition and composed application
+	op _._	: F{A,A} F{A,A} -> F{A,A} [ctor assoc] .
+	op _.__ : F{A,A} F{A,A} A$Elt -> A$Elt .
+	eq (F:F{A,A} . G:F{A,A}) E:A$Elt =
+		F:F{A,A} (G:F{A,A} E:A$Elt) .
+	
+	*** id
+	op id : -> F{A,A} .
+	eq id E:A$Elt = E:A$Elt .	
+	
+	
+	*** map
+	op map__ : F{A,B} List{A} -> List{B} .
+	eq map F:F{A,B} nil =
+		nil .
+	eq map F:F{A,B} (E:A$Elt L:List{A}) =
+		(F:F{A,B} E:A$Elt) (map F:F{A,B} L:List{A}) .
+	
+	*** zip
+	op zip__ : List{A} List{B} -> List{Tuple{A,B}} .
+---	eq zip nil:List{A} nil:List{A} = nil .
+	eq zip nil nil =
+		nil .
+	eq zip (E1:A$Elt L1:List{A}) (E2:B$Elt L2:List{B}) =
+		(E1:A$Elt, E2:B$Elt) (zip L1:List{A} L2:List{B}) .
+	
+	*** unzip
+	op unzip_ : List{Tuple{A,B}} -> Tuple{List{A},List{B}} .
+	eq unzip L:List{Tuple{A,B}} =
+		unzip' L:List{Tuple{A,B}} nil nil .
+	op unzip'___ : List{Tuple{A,B}} List{A} List{B} -> Tuple{List{A},List{B}} .
+	eq unzip' nil L1:List{A} L2:List{B} =
+		(L1:List{A},L2:List{B}) .
+	eq unzip' ((E1:A$Elt,E2:B$Elt) L:List{Tuple{A,B}}) L1:List{A} L2:List{B} =
+		unzip' L:List{Tuple{A,B}} (L1:List{A} E1:A$Elt) (L2:List{B} E2:B$Elt) .
+	
+	*** foldr
+***	op foldr___ : F{A,B,B} B$Elt List{A} -> B$Elt .
+***	eq foldr F:F{A,B,B} E:B$Elt nil =
+***		E:B$Elt .
+***	eq foldr F:F{A,B,B} E1:B$Elt (E2:A$Elt L:List{A}) =
+***		F:F{A,B,B} E2:A$Elt (foldr F:F{A,B,B} E1:B$Elt L:List{A}) .  
+
+*** TEMP
+	var Fabb : F{A,B,B} .
+	op foldr___ : F{A,B,B} B$Elt List{A} -> B$Elt .
+	eq foldr Fabb E:B$Elt nil =
+		E:B$Elt .
+	eq foldr Fabb E1:B$Elt (E2:A$Elt L:List{A}) =
+		Fabb E2:A$Elt (foldr Fabb E1:B$Elt L:List{A}) .  
+
+	*** foldl
+***	op foldl___ : F{A,B,A} A$Elt List{B} -> A$Elt .
+***	eq foldl F:F{A,B,A} E:A$Elt nil =
+***		E:A$Elt .
+***	eq foldl F:F{A,B,A} E1:A$Elt (E2:B$Elt L:List{B}) =
+***		foldl F:F{A,B,A} (F:F{A,B,A} E1:A$Elt E2:B$Elt) L:List{B} .  
+
+endfm)
+
+(fmod HOF-LIB2{A :: TRIV, B :: TRIV, C :: TRIV} is
+	pr LIST{A} .
+	pr LIST{B} .
+	pr LIST{C} .
+	inc HOF-F1{A,B} + HOF-F1{B,C}+ HOF-F1{A,C} + HOF-F1{Tuple{A,B},C} .
+	inc HOF-F2{A,B,C} .
+	
+	*** composition and composed application
+	op _._	: F{B,C} F{A,B} -> F{A,C} [ctor] .
+	op _.__ : F{B,C} F{A,B} A$Elt -> C$Elt .
+	eq (F:F{B,C} . G:F{A,B}) E:A$Elt =
+		F:F{B,C} (G:F{A,B} E:A$Elt) .
+
+	*** curry
+	op curry_ : F{Tuple{A,B},C} -> F{A,B,C} .
+	eq curry F:F{Tuple{A,B},C} E1:A$Elt E2:B$Elt =
+		F:F{Tuple{A,B},C} (E1:A$Elt,E2:B$Elt) .
+	
+	*** uncurry
+	op uncurry_ : F{A,B,C} -> F{Tuple{A,B},C} .
+	eq uncurry F:F{A,B,C} (E1:A$Elt,E2:B$Elt) =
+		F:F{A,B,C} E1:A$Elt E2:B$Elt .
+	
+	*** zipWith	
+	op zipWith___ : F{A,B,C} List{A} List{B} -> List{C} .
+	eq zipWith F:F{A,B,C} nil nil =
+		nil .
+	eq zipWith F:F{A,B,C} (E1:A$Elt L1:List{A}) (E2:B$Elt L2:List{B}) =
+		(F:F{A,B,C} E1:A$Elt E2:B$Elt) (zipWith F:F{A,B,C} L1:List{A} L2:List{B}) .
+
+endfm)

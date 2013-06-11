@@ -1,0 +1,148 @@
+fmod SNAT is
+    protecting BOOL .
+
+    sort SNat .
+
+    vars N M : SNat .
+
+    op 0 : -> SNat .
+    op 1 : -> SNat . eq 1 = s 0 .
+    op 2 : -> SNat . eq 2 = s 1 .
+    op 3 : -> SNat . eq 3 = s 2 .
+    op 4 : -> SNat . eq 4 = s 3 .
+    op 5 : -> SNat . eq 5 = s 4 .
+    op s_ : SNat -> SNat .
+
+    op _+_ : SNat SNat -> SNat .
+    eq 0 + N = N .
+    eq s N + M = s (N + M) .
+
+    op _<=_ : SNat SNat -> Bool .
+    eq 0 <= 0 = true .
+    eq 0 <= (s N) = true .
+    eq (s N) <= 0 = false .
+    eq (s N) <= (s M) = N <= M .
+
+    op _>_ : SNat SNat -> Bool .
+    eq N > M = (N <= M) == false .
+
+    *** note: use different operator name to avoid clash with sort 'Nat'
+    op _===_ : SNat SNat -> Bool .
+    eq (0 === 0) = true .
+    eq (0 === (s N)) = false .
+    eq s N === 0 = false .
+    eq (s N === s M) = (N === M) .
+
+    *** note: use different operator name to avoid clash with sort 'Nat'
+    op _=|=_ : SNat SNat -> Bool .
+    eq N =|= M = (N === M) == false .
+endfm
+
+*** test examples
+
+red in SNAT : 3 + 1 .
+red in SNAT : 3 <= 2 .
+red in SNAT : 3 <= 3 .
+red in SNAT : 1 <= 3 .
+red in SNAT : 2 === 3 .
+red in SNAT : 3 === 3 .
+red in SNAT : 2 =|= 1 .
+
+fmod SNLIST is
+    protecting BOOL .
+    protecting SNAT .
+
+    sort SNList .
+
+    vars N M : SNat .
+    vars L L' : SNList .
+
+    op nil : -> SNList .
+    op _::_ : SNat SNList -> SNList .
+
+    op _++_ : SNList SNList -> SNList .
+    eq nil ++ L = L .
+    eq (N :: L) ++ L' = N :: (L ++ L') .
+
+    op _in_ : SNat SNList -> Bool .
+    eq N in nil = false .
+    eq N in N :: L = true .
+    eq N in M :: L = N in L [owise] .
+
+    *** a slower version of 'reverse'
+    op reverse1_ : SNList -> SNList .
+    eq reverse1 nil = nil .
+    eq reverse1 (N :: L) = reverse1 L ++ (N :: nil) .
+
+    *** a faster version of 'reverse' using a helper function that uses an accu
+    op reverse_ : SNList -> SNList .
+    op reverse'__ : SNList SNList -> SNList .
+    eq reverse L = reverse' L nil . *** 2nd arg is accu
+    eq reverse' nil L = L .
+    eq reverse' (N :: L) L' = reverse' L (N :: L') .
+
+    *** note: because of maude's first order type system, we have to 'hard code'
+    *** the filter predicates (i.e., '<=', and '>')
+    *** an OCC implementation should be a better choice here...
+    op filter<=__ : SNat SNList -> SNList .
+    eq filter<= N L = reverse (filter<=' N L nil) . *** 3rd arg is accu
+    op filter<='___ : SNat SNList SNList -> SNList .
+    eq filter<=' N nil L = L .
+    ceq filter<=' N (M :: L) L' = filter<=' N L (M :: L') if M <= N .
+    ceq filter<=' N (M :: L) L' = filter<=' N L L' if M > N .
+
+    *** filter version that leaves filtered values in reversed order
+    op rfilter<=__ : SNat SNList -> SNList .
+    eq rfilter<= N L = filter<=' N L nil . *** 3rd arg is accu
+
+    op filter>__ : SNat SNList -> SNList .
+    eq filter> N L = reverse (filter>' N L nil) . *** 3rd arg is accu
+    op filter>'___ : SNat SNList SNList -> SNList .
+    eq filter>' N nil L = L .
+    ceq filter>' N (M :: L) L' = filter>' N L (M :: L') if M > N .
+    ceq filter>' N (M :: L) L' = filter>' N L L' if M <= N .
+
+    *** filter version that leaves filtered values in reversed order
+    op rfilter>__ : SNat SNList -> SNList .
+    eq rfilter> N L = filter>' N L nil . *** 3rd arg is accu
+endfm
+
+*** test examples
+red in SNLIST : nil .
+red in SNLIST : 1 :: nil .
+red in SNLIST : 1 :: 2 :: nil .
+red in SNLIST : 3 in 0 :: 2 :: 1 :: nil .
+red in SNLIST : 1 in 0 :: 3 :: 2 :: 1 :: nil .
+red in SNLIST : (1 :: nil) ++ (2 :: 3 :: nil) .
+
+red in SNLIST : reverse (1 :: 2 :: 3 :: 4 :: 5 :: nil) .
+red in SNLIST : reverse1 (1 :: 2 :: 3 :: 4 :: 5 :: nil) .
+
+set trace on .
+red in SNLIST : filter<= 2 (2 :: 3 :: 1 :: nil) . 
+set trace off .
+red in SNLIST : filter<= 2 (3 :: 2 :: 1 :: 1 :: 2 :: 3 :: 2 :: nil) .
+
+fmod QNSORT is
+    protecting SNLIST .
+
+    var N : SNat .
+    var L : SNList .
+
+    op qsort_ : SNList -> SNList .
+    eq qsort nil = nil .
+    eq qsort (N :: L) = (qsort (filter<= N L)) ++ ((N :: nil) ++ (qsort (filter> N L))) .
+
+    *** qsort version that uses filters that leave values in reverse order
+    *** (which is benign)
+    op rqsort_ : SNList -> SNList .
+    eq rqsort nil = nil .
+    eq rqsort (N :: L) = (rqsort (rfilter<= N L)) ++ ((N :: nil) ++ (rqsort (rfilter> N L))) .
+endfm
+
+*** test examples
+red in QNSORT : qsort (3 :: 2 :: 4 :: 1 :: nil) .
+*** note: the rqsort version is more efficient; the examples below require the following number
+*** of rewrite steps: qsort: 464, rqsort: 395
+red in QNSORT : qsort (3 :: 2 :: 4 :: 1 :: 1 :: 5 :: 3 :: 4 :: 4 :: 1 :: nil) .
+red in QNSORT : rqsort (3 :: 2 :: 4 :: 1 :: 1 :: 5 :: 3 :: 4 :: 4 :: 1 :: nil) .

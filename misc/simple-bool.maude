@@ -1,0 +1,28 @@
+fmod SBOOL is
+    sort SBool .
+
+    var B : SBool .
+
+    op true : -> SBool .
+    op false : -> SBool .
+
+    op !_ : SBool -> SBool .
+    eq ! true = false .
+    eq ! false = true .
+
+    op _/\_ : SBool SBool -> SBool .
+    eq true /\ B = B .
+    eq false /\ B = false .
+
+    op _\/_ : SBool SBool -> SBool .
+    eq true \/ B = true .
+    eq false \/ B = B .
+endfm
+
+*** test examples
+red in SBOOL : ! true .
+red in SBOOL : ! false .
+red in SBOOL : ! (false \/ false ) .
+red in SBOOL : true /\ false .
+red in SBOOL : false \/ true .
+

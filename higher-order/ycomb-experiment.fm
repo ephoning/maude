@@ -1,0 +1,30 @@
+***
+*** EPH 1/23/12
+*** attempt at specification and application of the Y-combinator
+*** using a functional module
+*** note: this implies we have to take a 'lazy eval' approach
+***
+*** THIS WORKS!
+***
+*** TODO: - check to see if ALL operators defined below have to be 'lazy'
+***
+fmod TEST-HOF-Y is
+
+    inc INT .
+    sort FY .
+    subsort FY < YY .
+
+    op __ : FY FY -> FY [assoc prec 17 strat (0)] . *** composition
+    op Y_ : FY -> FY [prec 16 strat (0)] . *** application for the Y combinator
+    op __ : FY Int -> Int [prec 18] . *** application for 'actual target' function
+    op fac : -> FY .
+
+    var F : FY .
+    var I : Int .
+
+    eq Y F = F (Y F) .
+
+    eq fac F I = if I == 0 then 1 else I * (F (I - 1)) fi .	
+
+endfm
+

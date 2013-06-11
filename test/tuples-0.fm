@@ -1,0 +1,25 @@
+(view Tuple{A :: TRIV, B :: TRIV} from TRIV to TUPLE[2]{A,B} is
+	sort Elt to Tuple{A,B} .
+endv)
+
+(view List{A :: TRIV} from TRIV to LIST{A} is
+	sort Elt to List{A} .
+endv)
+
+(fmod TYPES{A :: TRIV, B :: TRIV} is
+	pr LIST{A} .
+	pr LIST{B} .
+	
+	pr TUPLE[2]{List{A},List{B}} .
+	
+---	pr LIST{Tuple2{A,B}} .
+	pr LIST{Tuple{Nat,String}} .
+endfm)
+
+(fmod TST is
+	inc TYPES{Nat,Nat} .
+endfm)
+
+(red ( (1 2 3) , (4 5 6) ) .)
+---(red (1,2) (2,4) (3,6) .)
+(red (1,"a") (2,"b") (3,"c") .)

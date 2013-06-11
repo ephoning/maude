@@ -1,0 +1,30 @@
+
+*** view List{A :: TRIV} from TRIV to LIST{A} is
+
+*** 	sort Elt to List{A} .
+
+*** endv
+
+fmod ED is
+    sort ED .
+endfm
+
+view ED from TRIV to ED is
+    sort Elt to ED .
+endv
+
+fmod EDDIE is
+    inc META-LEVEL .
+
+***    inc ED .
+    inc ED .
+
+    op Eddie : -> ED .
+
+    pr LIST{ED} .
+
+    vars E1 E2 : ED .
+    op mkEdList__ : ED ED -> List{ED} .
+    eq mkEdList E1 E2 = E1 E2 .
+endfm
+

@@ -1,0 +1,18 @@
+fmod MYSET is
+
+protecting BOOL .
+
+sort Foo FooSet .
+subsort Foo < FooSet .
+
+ops a b c d e f : -> Foo [ctor] .
+op __ : FooSet FooSet -> FooSet [assoc comm] .
+
+op _=s=_ : FooSet FooSet -> Bool .
+
+vars FS1 FS2 : FooSet . *** equality per unification
+
+eq FS1 =s= FS1 = true .
+eq FS1 =s= FS2 = false [owise] .
+
+endfm

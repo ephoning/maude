@@ -1,0 +1,24 @@
+(view Tuple{A :: TRIV, B :: TRIV} from TRIV to TUPLE[2]{A,B} is
+
+	sort Elt to Tuple{A,B} .
+
+endv)
+
+(view List{A :: TRIV} from TRIV to LIST{A} is
+    sort Elt to List{A} .
+endv)
+
+(fmod TRACK-REGISTRY is
+    pr QID .
+    pr INT .
+
+    pr TUPLE[2]{Qid,Int} .
+    pr LIST{Tuple{Qid,Int}} .
+
+    sort TrackRegistry .
+    subsort  List{Tuple{Qid,Int}} < TrackRegistry .
+
+    op initial-track-registry : -> TrackRegistry .
+    eq initial-track-registry = ('TrackA, 0) ('TrackB, 0) ('TrackC, 0) .
+
+endfm)

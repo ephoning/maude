@@ -1,0 +1,60 @@
+***
+*** EPH 1/23/12
+*** attempt at specification and application of the Y-combinator
+*** using a functional module
+*** note: this implies we have to take a 'lazy eval' approach
+***
+*** THIS WORKS!
+*** NOTE: this apporach to, e.g., faculty calculation does not seem to to consume
+***       a lot of stack space => we can call 'fac' with arbitrary high argument value
+***
+*** TODO: - check to see if ALL operators defined below have to be 'lazy'
+***         DONE (result: NO, only '__' needs to be lazy)
+***       - operator precedence seems to be fine as-is, but is there more to
+***         be done here?
+***       - generalize (i.e., extract dependency on 'Int' functions)   DONE
+***       - add more intricate examples (e.g., fibonacci, as it's recursion branches)
+***
+
+fmod HOF-Y1{A :: TRIV, B :: TRIV} is
+
+    sort FY .
+    sort FY{A,B} .
+    subsort FY{A,B} < FY . *** note: FY (the type used by 'Y') is the "generic supertype"
+	
+    op __ : FY FY -> FY [assoc prec 17 strat (0)] . *** composition
+    op Y_ : FY -> FY [prec 16 memo] . *** application for the Y combinator		
+    op __ : FY{A,B} A$Elt -> B$Elt [prec 18 memo] . *** application
+
+    var F : FY{A,B} .
+    eq Y F = F (Y F) .
+	
+endfm
+
+
+fmod TEST-HOF-Y is
+
+    inc INT .
+    inc HOF-Y1{Int,Int} .
+	
+    *** example: non-recursive definition of 'fac' (to be applied/rewritten using 'Y')
+    op fac : -> FY{Int,Int} .
+    var F : FY .
+    var I : Int .
+    eq fac F I = if I == 0 then 1 else I * F (I - 1) fi .
+    
+    *** "currying" (curried application of 'Y')
+    op yfac : -> FY{Int,Int} .
+    eq yfac = Y fac .
+
+    *** fibonacci
+    op fib : -> FY{Int, Int} .
+    eq fib F 0 = 0 .
+    eq fib F 1 = 1 .
+    eq fib F I = (fib F (I - 1)) + (fib F (I - 2)) . 
+
+endfm
+
+*** red Y fac 42 .
+*** red Y fac 50000 .
+*** red Y fib 40000 .

@@ -1,0 +1,19 @@
+fmod QSORT is
+    inc NAT .
+    pr LIST{Nat} .
+
+    op filter_<= : List{Nat} Nat -> List{Nat} .
+    op filter_> : List{Nat} Nat -> List{Nat} .
+
+    op qsort : List{Nat} -> List{Nat} .
+
+
+    vars N M : Nat .
+    var L : List{Nat} .
+
+    eq qsort( N ) = N .
+    eq qsort( N L ) = qsort( filter( L, 
+
+
+    eq filter_<=(N, M) = 
+endfm

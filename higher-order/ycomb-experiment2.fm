@@ -1,0 +1,38 @@
+***
+*** EPH 1/23/12
+*** attempt at specification and application of the Y-combinator
+*** using a functional module
+*** note: this implies we have to take a 'lazy eval' approach
+***
+*** THIS WORKS!
+*** NOTE: this approach to, e.g., faculty calculation does not seem to to consume
+***       a lot of) stack space => we can call 'fac' with arbitrary high argument value
+***
+*** TODO: - check to see if ALL operators defined below have to be 'lazy'
+***         DONE (result: NO, only '__' needs to be lazy)
+***       - operator precedence seems to be fine as-is, but is there more to
+***         be done here?
+***       - generalize (i.e., extract dependency on 'Int' functions)
+***
+fmod TEST-HOF-Y is
+
+    inc INT .
+    sort FY .
+
+    op __ : FY FY -> FY [assoc prec 17 strat (0)] . *** composition
+    op Y_ : FY -> FY [prec 16] . *** application for the Y combinator
+    op __ : FY Int -> Int [prec 18] . *** application for 'actual target' function
+
+    var F : FY .
+    var I : Int .
+
+    eq Y F = F (Y F) .
+
+    *** an example: faculty
+    op fac : -> FY .
+    eq fac F I = if I == 0 then 1 else I * (F (I - 1)) fi .	
+
+endfm
+
+*** red Y fac 42 .
+*** red Y fac 50000 .

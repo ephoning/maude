@@ -1,0 +1,314 @@
+*** EPH 11/17/10 
+*** - improve result representation for clarity/readability
+***   e.i., color coding of start/end times, indentation, etc.
+*** - 'specialize' tasks in order to allow for distict approaches to 'duration' calculation
+***    e.g., 'fixed', 'proportional', etc.
+*** 
+*** strategy
+*** - register tasks currently scheduled (i.e., track assigned) in 'env' object
+*** - scheduling rule gate keeper for a task with dependencies is that the task's dependency set
+***   is unifyable with the 'currently scheduled tasks' set in 'env'
+*** - note that the rule to schedule a task with a single dependency is subsumed by the above strategy
+***   => remove the 'single-dep' rule
+***
+*** state: in progress
+***
+*** roadmap:
+*** - support multiple dependencies   DONE
+*** - refactor to improve abstraction (e.g., "externalize" track 'from' calculation)  DONE
+*** - improve result representation for clarity/readability
+***   e.i., color coding of start/end times, indentation, etc.
+*** - 'specialize' tasks in order to allow for distict approaches to 'duration' calculation
+***    e.g., 'fixed', 'proportional', etc.
+*** - 'externalize' testing framework and test instances
+*** - refactor to make types more distinct where appropriate (TaskId vs. plain Qid?, etc.)
+*** - refactor to make 'track' an instance of a 'resource'
+*** - add support for additional 'resource' types
+*** - translate 'start' 'end' attributes to time of day
+
+mod CS-EXP-4 is
+    inc QID .
+    inc CONFIGURATION .
+    pr BOOL .
+    pr INT .
+
+    subsort Qid < Oid .
+
+    sort Tasks .
+    subsort Qid < Tasks .
+    op none : -> Tasks .
+    op __ : Tasks Tasks -> Tasks [ctor assoc comm id: none ] .
+
+    op Task : -> Cid [ctor format (m on)] .
+    op TaskDeps : -> Cid [ctor] .
+    op Track : -> Cid [ctor format (m on)] .
+    op Env : -> Cid [ctor] .
+    op TaskEnd : -> Cid [ctor] .
+
+    op start-ceiling :_ : Int -> Attribute [ctor format (d d b o) gather (&)] .  --- overall completion time
+    op start :_ : Int -> Attribute [ctor format (d d g o) gather (&)] .
+    op end :_ : Int -> Attribute [ctor format (d d r o) gather (&)] .
+    op duration :_ : Int -> Attribute [ctor] .
+    op track :_ : Oid -> Attribute [ctor] .
+    op task :_ : Oid -> Attribute [ctor] .
+    op tasks :_ : Tasks -> Attribute [ctor] .
+    op scheduled-tasks :_ : Tasks -> Attribute [ctor] .  --- currently scheduled tasks
+    op task-ends :_ : Configuration -> Attribute [ctor] . --- end times of currently scheduled tasks
+
+    --- used to bootstrap processing
+    op initialize : -> Msg [ctor] .
+    --- used to indicate 'prep mode' (i.e. ONLY use prep rules in the presence of a 'prep' msg)
+    --- this forces alternation between prep and schedule rule application; this is needed to avoid
+    --- multiple consecutive applications of prep rules, which otherwise would result in configurations with multiple
+    --- "queued up" schedule messages that would, when used to schedule tasks, result in overlapping tasks
+    --- on a single track
+    --- in short: this mechanism results in the strict "pairing" of a prep and schedule "invocation"
+    op prep : -> Msg [ctor] .
+    op schedule : Oid Oid Int -> Msg [ctor] .
+
+    vars Ta TaD Tr PreTa PreTaTr : Oid .
+    vars AcStartCeil TrStart : Int .
+    vars TaStart TaEnd TaDur : Int .
+    vars PreTaStart PreTaEnd PreTaDur : Int .
+    vars PreTsks SchedTsks : Tasks .
+    var TskEnds : Configuration .
+
+    --- carry out initialization on the configuration
+    rl [initialize] :
+	initialize
+      =>
+	prep .
+
+    --- schedule track to a task without pre-task dependency
+    rl [schedule-no-deps-prep] :
+	prep
+	< Tr : Track | start : TrStart >
+	< Ta : Task | start : 0 , end : 0 ,  duration : TaDur , track : 'none  >
+ 	< TaD : TaskDeps | task : Ta , tasks : none >
+	< 'Env : Env | start-ceiling : AcStartCeil , scheduled-tasks : SchedTsks , task-ends : TskEnds > 
+    =>
+	schedule(Tr, Ta, TrStart)
+	< Tr : Track | start : TrStart >
+	< Ta : Task | start : 0 , end : 0 ,  duration : TaDur , track : 'none  >
+ 	< TaD : TaskDeps | task : Ta , tasks : none >
+	< 'Env : Env | start-ceiling : AcStartCeil , scheduled-tasks : SchedTsks , task-ends : TskEnds > .
+
+    --- prepare to schedule track to a task whose pre-task(s) has(have) already been scheduled
+    crl [schedule-deps-prep] :
+	prep
+	< Tr : Track | start : TrStart >
+	< Ta : Task | start : 0 , end : 0 , duration : TaDur , track : 'none >
+ 	< TaD : TaskDeps | task : Ta , tasks : PreTsks >
+	< 'Env : Env | --- note: if 'PreTsks' unifies with part of 'scheduled-tasks' then pre-conditions for scheduling task 'Ta' have been met
+		       start-ceiling : AcStartCeil , 
+		       scheduled-tasks : (SchedTsks PreTsks) ,
+		       task-ends : TskEnds >
+    =>
+	--- calc start time once and "inject" schedule message
+	schedule(Tr, Ta, calc-start(TrStart, PreTsks, TskEnds))
+	< Tr : Track | start : TrStart >
+	< Ta : Task | start : 0 , end : 0 , duration : TaDur , track : 'none >
+ 	< TaD : TaskDeps | task : Ta , tasks : PreTsks >
+	< 'Env : Env | start-ceiling : AcStartCeil ,
+		       scheduled-tasks : (SchedTsks PreTsks) ,
+		       task-ends : TskEnds > 
+    if PreTsks =/= none .
+
+    --- schedule track to a task whose pre-task(s) has(have) already been scheduled
+    rl [schedule] :
+	schedule(Tr, Ta, TaStart)
+	< Tr : Track | start : TrStart >
+	< Ta : Task | start : 0 , end : 0 , duration : TaDur , track : 'none >
+	< 'Env : Env | --- note: if 'PreTsks' unifies with part of 'scheduled-tasks' then pre-conditions for scheduling *this* task have been met
+		       start-ceiling : AcStartCeil ,
+		       scheduled-tasks : (SchedTsks PreTsks) ,
+		       task-ends : TskEnds >
+    =>
+	prep --- signal return to 'prep mode'
+ 	< Tr : Track | start : TaStart + TaDur >
+	< Ta : Task | start : TaStart , end : (TaStart + TaDur ) - 1 , duration : TaDur , track : Tr >
+	< 'Env : Env | start-ceiling : max( AcStartCeil, TaStart + TaDur) ,
+		       scheduled-tasks : (SchedTsks PreTsks Ta) ,
+		       task-ends : (TskEnds < 'te : TaskEnd | task : Ta , end : (TaStart + TaDur) - 1 >) > .
+
+    vars C C' C'' : Configuration .
+    vars I E M : Int .
+    vars O T T' : Oid .
+    var Ts : Tasks .
+
+    --- calculate start time based on a track's start time, and a set of task end times from a subset of TaskEnd objects
+    --- (filtered on the basis of a track's presence in a task list)
+    op calc-start : Int Tasks Configuration -> Int .
+    eq calc-start(I, Ts, C) = max(I, max-taskend-end(filter-config(Ts, C)) + 1) .
+
+    op filter-config : Tasks Configuration -> Configuration .
+    eq filter-config(Ts, C) = filter-config'(Ts, C, none) .
+    op filter-config' : Tasks Configuration Configuration -> Configuration .
+    eq filter-config'( T, (< O : TaskEnd | task : T , end : E > C), C') = < O : TaskEnd | task : T , end : E > C' .
+    eq filter-config'( (T Ts), (< O : TaskEnd | task : T , end : E > C), C') = filter-config'(Ts, C, (< O : TaskEnd | task : T , end : E > C')) .
+	
+    --- determine the max 'end' value in a set of TaskEnd objects
+    op max-taskend-end : Configuration -> Int .
+    eq max-taskend-end(C) = max-taskend-end'(C, -1) .
+    op max-taskend-end' : Configuration Int -> Int .
+    eq max-taskend-end'(none, M) = M .
+    eq max-taskend-end'( < 'te : TaskEnd | task : T , end : E > C, M) = max-taskend-end'(C, max(E,M)) .
+ 
+endm
+
+***** unit tests *****
+
+mod CS-EXP-4-UNIT-TESTS is
+    inc CS-EXP-4 .
+
+    op test-taskends-config : -> Configuration [ctor] .
+    eq test-taskends-config =
+	< 'te : TaskEnd | task : 'T123 , end : 123 >
+	< 'te : TaskEnd | task : 'T42 , end : 42 >
+	< 'te : TaskEnd | task : 'T2 , end : 2 >
+	< 'te : TaskEnd | task : 'T1 , end : 1 >
+	< 'te : TaskEnd | task : 'T4 , end : 4 >
+	< 'te : TaskEnd | task : 'T3 , end : 3 > .
+
+    op test-tasks : -> Tasks [ctor] .
+    eq test-tasks =
+	'T1 'T2 'T3 'T42 .
+
+    op test-config-nodeps : -> Configuration .
+    eq test-config-nodeps =
+	< 'Env : Env | start-ceiling : -1 , scheduled-tasks : none , task-ends : none >
+	< 'TrackA : Track | start : 0 >
+	< 'TrackB : Track | start : 0 >
+	< 'Task1 : Task | start : 0 , end : 0 , duration : 7 , track : 'none >
+	< 'Task2 : Task | start : 0 , end : 0 , duration : 8 , track : 'none > 
+	< 'Task3 : Task | start : 0 , end : 0 , duration : 9 , track : 'none >
+	< 'Task1Deps : TaskDeps | task : 'Task1 , tasks : none >
+	< 'Task2Deps : TaskDeps | task : 'Task2 , tasks : none >
+	< 'Task3Deps : TaskDeps | task : 'Task3 , tasks : none > .
+
+    op test-config-1dep : -> Configuration .
+    eq test-config-1dep =
+	< 'Env : Env | start-ceiling : -1 , scheduled-tasks : none , task-ends : none >
+	< 'TrackA : Track | start : 0 >
+	< 'TrackB : Track | start : 0 >
+	< 'Task1 : Task | start : 0 , end : 0 , duration : 7 , track : 'none >
+	< 'Task2 : Task | start : 0 , end : 0 , duration : 8 , track : 'none > 
+	< 'Task3 : Task | start : 0 , end : 0 , duration : 9 , track : 'none >
+	< 'Task1Deps : TaskDeps | task : 'Task1 , tasks : none >
+	< 'Task2Deps : TaskDeps | task : 'Task2 , tasks : none >
+	< 'Task3Deps : TaskDeps | task : 'Task3 , tasks : 'Task1 > .
+
+    op test-config-2deps : -> Configuration .
+    eq test-config-2deps =
+	< 'Env : Env | start-ceiling : -1 , scheduled-tasks : none , task-ends : none >
+	< 'TrackA : Track | start : 0 >
+	< 'TrackB : Track | start : 0 >
+	< 'Task1 : Task | start : 0 , end : 0 , duration : 7 , track : 'none >
+	< 'Task2 : Task | start : 0 , end : 0 , duration : 8 , track : 'none > 
+	< 'Task3 : Task | start : 0 , end : 0 , duration : 9 , track : 'none >
+	< 'Task1Deps : TaskDeps | task : 'Task1 , tasks : none >
+	< 'Task2Deps : TaskDeps | task : 'Task2 , tasks : none >
+	< 'Task3Deps : TaskDeps | task : 'Task3 , tasks : ('Task1 'Task2) > .
+
+    op test-config-2deps' : -> Configuration .
+    eq test-config-2deps' =
+	< 'Env : Env | start-ceiling : -1 , scheduled-tasks : none , task-ends : none >
+	< 'TrackA : Track | start : 0 >
+	< 'TrackB : Track | start : 0 >
+	< 'Task1 : Task | start : 0 , end : 0 , duration : 7 , track : 'none >
+	< 'Task2 : Task | start : 0 , end : 0 , duration : 8 , track : 'none > 
+	< 'Task3 : Task | start : 0 , end : 0 , duration : 9 , track : 'none >
+	< 'Task1Deps : TaskDeps | task : 'Task1 , tasks : none >
+	< 'Task2Deps : TaskDeps | task : 'Task2 , tasks : 'Task1 >
+	< 'Task3Deps : TaskDeps | task : 'Task3 , tasks : 'Task1 > .
+
+    op test-config-2deps'' : -> Configuration .
+    eq test-config-2deps'' =
+	< 'Env : Env | start-ceiling : -1 , scheduled-tasks : none , task-ends : none >
+	< 'TrackA : Track | start : 0 >
+	< 'TrackB : Track | start : 0 >
+	< 'Task1 : Task | start : 0 , end : 0 , duration : 7 , track : 'none >
+	< 'Task2 : Task | start : 0 , end : 0 , duration : 8 , track : 'none > 
+	< 'Task3 : Task | start : 0 , end : 0 , duration : 9 , track : 'none >
+	< 'Task1Deps : TaskDeps | task : 'Task1 , tasks : none >
+	< 'Task2Deps : TaskDeps | task : 'Task2 , tasks : 'Task1 >
+	< 'Task3Deps : TaskDeps | task : 'Task3 , tasks : 'Task2 > .
+
+    op test-config-3deps : -> Configuration .
+    eq test-config-3deps =
+	< 'Env : Env | start-ceiling : -1 , scheduled-tasks : none , task-ends : none >
+	< 'TrackA : Track | start : 0 >
+	< 'TrackB : Track | start : 0 >
+	< 'Task1 : Task | start : 0 , end : 0 , duration : 7 , track : 'none >
+	< 'Task2 : Task | start : 0 , end : 0 , duration : 8 , track : 'none > 
+	< 'Task3 : Task | start : 0 , end : 0 , duration : 9 , track : 'none >
+	< 'Task1Deps : TaskDeps | task : 'Task1 , tasks : none >
+	< 'Task2Deps : TaskDeps | task : 'Task2 , tasks : 'Task1 >
+	< 'Task3Deps : TaskDeps | task : 'Task3 , tasks : ('Task1 'Task2) > .
+
+    op test-config-3deps' : -> Configuration .
+    eq test-config-3deps' =
+	< 'Env : Env | start-ceiling : -1 , scheduled-tasks : none , task-ends : none >
+	< 'TrackA : Track | start : 0 >
+	< 'TrackB : Track | start : 0 >
+	< 'Task1 : Task | start : 0 , end : 0 , duration : 7 , track : 'none >
+	< 'Task2 : Task | start : 0 , end : 0 , duration : 8 , track : 'none > 
+	< 'Task3 : Task | start : 0 , end : 0 , duration : 9 , track : 'none >
+	< 'Task4 : Task | start : 0 , end : 0 , duration : 9 , track : 'none >
+	< 'Task1Deps : TaskDeps | task : 'Task1 , tasks : none >
+	< 'Task2Deps : TaskDeps | task : 'Task2 , tasks : 'Task1 >
+	< 'Task3Deps : TaskDeps | task : 'Task3 , tasks : ('Task1 'Task2) >
+	< 'Task4Deps : TaskDeps | task : 'Task4 , tasks : none > .
+
+
+    op test-config-4deps : -> Configuration .
+    eq test-config-4deps =
+	< 'Env : Env | start-ceiling : -1 , scheduled-tasks : none , task-ends : none >
+	< 'TrackA : Track | start : 0 >
+	< 'TrackB : Track | start : 0 >
+	< 'Task1 : Task | start : 0 , end : 0 , duration : 7 , track : 'none >
+	< 'Task2 : Task | start : 0 , end : 0 , duration : 8 , track : 'none > 
+	< 'Task3 : Task | start : 0 , end : 0 , duration : 9 , track : 'none >
+	< 'Task4 : Task | start : 0 , end : 0 , duration : 9 , track : 'none >
+	< 'Task5 : Task | start : 0 , end : 0 , duration : 11 , track : 'none >
+	< 'Task1Deps : TaskDeps | task : 'Task1 , tasks : none >
+	< 'Task2Deps : TaskDeps | task : 'Task2 , tasks : 'Task1 >
+	< 'Task3Deps : TaskDeps | task : 'Task3 , tasks : ('Task1 'Task2) >
+	< 'Task4Deps : TaskDeps | task : 'Task4 , tasks : 'Task2 > 
+	< 'Task5Deps : TaskDeps | task : 'Task5 , tasks : none > 
+.
+
+endm
+
+*** *** test max-taskend-end operator
+*** red max-taskend-end(
+***     < 'te : TaskEnd | task : 'T1 , end : 12 >
+***     < 'te : TaskEnd | task : 'T2 , end : 42 >
+***     < 'te : TaskEnd | task : 'T3 , end : 7 > ) .
+
+*** test filter-config operator
+red in CS-EXP-4-UNIT-TESTS : filter-config(
+  test-tasks,
+  test-taskends-config ) .
+
+red calc-start(7, test-tasks, test-taskends-config) .
+
+*** **** example "resolutions" ****
+
+*** *** basic 'rewrite'
+*** rew test-config .
+
+*** *** search for all solutions ***
+*** search test-config-nodep =>! C:Configuration .
+*** search test-config-1dep =>! C:Configuration .
+*** search test-config-2deps =>! C:Configuration .
+
+*** search for a solution matching a particular constraint ***
+*** search test-config-1dep =>! C:Configuration < 'Task1 : Task | A:AttributeSet , track : TrackId:Oid > such that TrackId:Oid = 'TrackB .
+*** search [1] in CS-EXP-4-UNIT-TESTS : test-config-2deps =>! C:Configuration .
+*** search [1] in CS-EXP-4-UNIT-TESTS : test-config-2deps =>! C:Configuration < 'Env : Env | A:AttributeSet,start-ceiling : FC:Int > such that FC:Int < 20 = true .
+
+*** search [2] in CS-EXP-4-UNIT-TESTS : initialize test-config-3deps' =>! C:Configuration < 'Env : Env | A:AttributeSet,start-ceiling : FC:Int > such that FC:Int <= 24 = true .
+
+
+

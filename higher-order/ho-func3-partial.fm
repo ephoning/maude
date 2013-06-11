@@ -1,0 +1,18 @@
+(fmod TEST is
+
+	inc HOF-LIB1{Nat,Nat} .
+	
+	vars N M : Nat .
+
+	*** single 1 arg
+	op double : -> F{Nat,Nat} .
+	eq double N = N * 2 .
+	
+	op twicedouble : -> F{Nat,Nat} .
+	eq twicedouble = double . double .
+
+endfm)
+
+(red (double . double) 42 .)
+(red twicedouble 2 .)
+

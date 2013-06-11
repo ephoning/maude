@@ -1,0 +1,62 @@
+general notes / thought on implementing constraint satisfaction systems in Maude
+--------------------------------------------------------------------------------
+NOTE: this discussion is specific to task scheduling but might be a candidate for generalization to a larger class of applications
+
+- representation
+  - use maude's oo module in full maude
+  - slot allocation
+    - names / ids
+    - constraints
+      - limits
+      	e.g., max number of concurrent independent procs / tasks
+	      the actual limit itself is NOT part of a task object, but can be represented in an environment object
+	      	  the env object is part of the 'soup' and thus shared
+		  it must represent:
+		     - max
+                     - next free track index OR highest track index currently in use
+	      this then results in 'slot ids' to be used to tie a task to a process-track
+      - fixed / given data
+      	e.g., specific duration for *this* task
+	      dependency type
+			sequential overlap dependent
+				   (i.e., can start BEFORE or AFTER some other task, but CANNOT run concurrently with that task)
+			sequential completion dependent
+				   (i.e. can only start AFTER some other task completed) 
+			(implicitly, 2 tasks that are not tied in a dependency relationship can run in parallel
+			  (module the environment's capability to run a suficient number of process-tracks) 
+	      dependency data
+      - to-be-calculated data
+      	- per task object
+	      	e.g., actual task start and end times
+		      process-track membership
+	- in env object
+	     	e.g., actual number of process-tracks in use
+		       (note: implicitly doen as per, e.g., 'highest track index in use')
+		      overall task set completion time
+
+distinction between fixed and to-be-calculated slots is probably not necessary. rule selection must be 'flexible' enough to
+recognize the need to select an object for "execution"; the selector can be arbitrary in this respect; e.g., select on the basis of
+a 'magic' value that indicates 'no assigned yet'.
+in all: the selection criteria / expressions themselves + the rule's activity determines what is fixed or assignable / re-assigned
+ 
+-------------------
+world representation:
+      - 1 env object
+      - n task objects
+
+- define base type of soup entry
+- define both env and task as sub-types
+- all rules that require 'env' just include one lhs
+- the initial state contains just 1 env object
+therefore, the world containing only 1 env object is implicit in the init state, and not enforced by the type system
+(for now, there is no need to add this restriction explicitely => avoids complexity)
+
+initial state is env object +
+	- no tasks with calculated slots
+OR
+	- some task with calculated slots (allow us to 'force' certain tasks to have certain properties, such as a distinct start or
+	  completion time)
+
+rule selectors:
+    - presence of uncalculated task slots => apply task scheduling rules
+

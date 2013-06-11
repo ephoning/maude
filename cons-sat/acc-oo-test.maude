@@ -1,0 +1,31 @@
+(omod ACCOUNT is
+    pr QID .
+    pr INT .
+
+    subsort Qid < Oid .
+    class Account | bal : Int .
+    msg credit : Oid Int -> Msg .
+    msg add : Oid Int -> Msg .
+
+    var A : Oid .
+    vars M N  : Int .
+
+***     crl [credit] :
+*** 	add(A,M)
+*** 	< A : Account | bal : N >
+***       => < A : Account | bal : N + M >
+***       if N > 0 .
+
+    rl [credit] :
+	add(A,M)
+	< A : Account | bal : N >
+      => < A : Account | bal : N + M > .
+
+***     crl [increment] :
+*** 	< A : Account | bal : N >
+***       => < A : Account | bal : N + 10 > 
+***       if N <= 150 . 
+endom)
+
+
+(rew add('A-42,123) < 'A-42 : Account | bal : 100 >  .)

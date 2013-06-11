@@ -1,0 +1,39 @@
+--- EPH 09/02/09
+--- an attempt at currying
+
+fmod AP{X :: TRIV, Y :: TRIV, Z :: TRIV} is
+  sorts Func{X,Y} Func{Y,Z} Func{X,Y,Z} .
+  op _[_] : Func{X,Y} X$Elt -> Y$Elt [prec 17] .
+  op _[_] : Func{Y,Z} Y$Elt -> Z$Elt [prec 17] .
+  op _[_] : Func{X,Y,Z} X$Elt -> Func{Y,Z} [prec 17] .  
+endfm
+
+fmod TEST-1 is
+  inc NAT .
+  pr AP{Nat,Nat,Nat} .
+  vars M N : Nat .
+  op mult : -> Func{Nat,Nat,Nat} .
+  op mult42 : -> Func{Nat,Nat} .
+  --- a "partially applied" version of 'mult'  
+  eq mult42 = mult[42] .
+  eq mult[N][M] = N * M .
+endfm
+
+fmod TEST-2 is
+  pr NAT .
+  pr CONVERSION .
+  pr AP{String,Nat,String} .
+  var S : String .
+  var N : Nat .
+  op foo : -> Func{String,Nat,String} .
+  eq foo[S][N] = S + string(N, 10) .
+  --- a "partially applied" version of 'foo'  
+  op foobar : -> Func{Nat,String} .
+  eq foobar = foo["bar"] .
+endfm
+
+--- TEST-1
+red in TEST-1 : mult42[2] .
+
+--- TEST-2
+red in TEST-2 : foobar[2] .

@@ -1,0 +1,2 @@
+(load track-registry.fm .)
+(load cons-sat-00-2.maude .)

@@ -1,0 +1,147 @@
+********************************************************************************
+***
+*** EPH Nov 8 2010
+***
+*** testing the set of 'functions' needed to implement constraint satisfaction
+***
+********************************************************************************
+***
+*** - fitting start-end pairs on a 'timeline' without overlap
+***   1st stage: unconditionally
+***   2nd stage: conditionally: pair order dependencies
+***
+*** note: we can use Msg instances to signal/convey state (*) or desired actions between
+***       rules
+***       *: i.e., state external to that contained in objects
+***
+
+view List{A :: TRIV} from TRIV to LIST{A} is
+    sort Elt to List{A} .
+endv
+
+fmod TRACK-REGISTRY is
+    pr QID .
+    pr INT .
+
+    sort TREntry .
+    op (_,_) : Qid Int -> TREntry .
+
+    pr LIST{TREntry} .
+
+    sort TrackRegistry .
+    subsort  List{TREntry} < TrackRegistry .
+
+    op initial-track-registry : -> TrackRegistry .
+    eq initial-track-registry = ('TrackA, 0) ('TrackB, 0) ('TrackC, 0) .
+
+endfm
+
+mod TASK-SCHED-CONS-SAT is
+    pr QID .
+    pr INT .
+    inc CONFIGURATION .
+    inc TRACK-REGISTRY .
+
+    subsort Qid < Oid .
+
+    sort Tasks .
+    subsort Qid < Tasks .
+    op __ : Tasks Tasks -> Tasks [ctor assoc comm] .
+    op none : -> Tasks .
+
+    class Env | treg : TrackRegistry .
+
+    class Track | start : Int .
+    class Task | duration : Int , start : Int , end : Int , track : Oid .
+    class Task-Dependencies | task : Oid , tasks : Tasks .
+
+
+    msg select-track : Oid -> Msg . --- task id
+    msg assign-track-to-task : Oid Oid Int -> Msg . --- task id, track id, track start
+
+    vars E Ta TaDe Tr : Oid .
+    vars Du St En : Int .
+    var Ts : Tasks .
+
+    *** note: a tasks' track id is used as flag to see if it has been scheduled yet
+    *** a task can be scheduled if:
+    *** - it has no dependency
+
+***     rl [sched-no-dep] :
+*** 	< Ta : Task | duration : Du , track : 'notset >
+*** 	< TaDe : Task-Dependencies | task : Ta , tasks : none >
+***       =>
+*** 	< Ta : Task | duration : Du , track : 'notset >
+*** 	< TaDe : Task-Dependencies | task : Ta , tasks : none >
+*** 	select-track(Ta) .
+
+    rl [select-track] :
+	select-track(Ta)
+	< Tr : Track | start : St >
+  	< Ta : Task | duration : Du , track : 'notset >
+      =>
+	< Tr : Track | start : St >
+  	< Ta : Task | duration : Du , track : 'notset >
+	assign-track-to-task(Ta, Tr, St) .
+
+    rl [assign-track-to-task] :
+	assign-track-to-task(Ta, Tr, St)
+	< Tr : Track | start : St >
+	< Ta : Task | duration : Du , track : 'notset >
+      =>
+	< Tr : Track | start : St + Du >
+	< Ta : Task | duration : Du , start : St , end : (St + Du) - 1 , track : Tr > .
+
+    rl [schedule-track-assignment] :
+  	< Ta : Task | duration : Du , track : 'notset >
+      =>
+	< Ta : Task | duration : Du , track : 'notset >
+	select-track(Ta) .
+
+
+
+    *** a task can be scheduled if:
+    *** - all tasks it depends on have been scheduled
+
+***     crl [sched-dep] :
+*** 	< Ta : Task | duration : Du , track : 'notset >
+*** 	< TaDe : Task-Dependencies | task : Ta , tasks : Ts >
+*** 	< Tr : Track | start : St >
+***     =>
+*** 	< Ta : Task | start : St , end : (St + Du) - 1 , track : Tr > --- fix: start time MUST be after end time of all tasks it depends on
+*** 	< TaDe : Task-Dependencies | task : Ta , tasks : Ts >
+*** 	< Tr : Track | start : St + Du > --- fix
+***     if Ts = none .
+
+
+    op initial-config : -> Configuration .
+***     eq initial-config =
+*** 	< 'Env : Env | treg : initial-track-registry >
+***    	< 'Track1 : Track | start : 0 >
+***   	< 'Track2 : Track | start : 0 > 
+***   	< 'Track3 : Track | start : 0 > 
+***   	< 'TaskA : Task | duration : 5 , start : -1 , end : -1 , track : 'notset > 
+*** 	< 'TaskB : Task | duration : 2 , start : -1 , end : -1 , track : 'notset >
+*** 	< 'TaskC : Task | duration : 3 , start : -1 , end : -1 , track : 'notset >
+*** 	< 'TaskD : Task | duration : 3 , start : -1 , end : -1 , track : 'notset >
+*** 	< 'TaskE : Task | duration : 3 , start : -1 , end : -1 , track : 'notset >
+*** 	< 'TaskF : Task | duration : 7 , start : -1 , end : -1 , track : 'notset >
+***  	< 'TaskDepA : Task-Dependencies | task : 'TaskA , tasks : none > 
+*** 	< 'TaskDepB : Task-Dependencies | task : 'TaskB , tasks : none >
+*** 	< 'TaskDepC : Task-Dependencies | task : 'TaskC , tasks : 'TaskA 'TaskB >
+***  	< 'TaskDepD : Task-Dependencies | task : 'TaskD , tasks : 'TaskC >
+***  	< 'TaskDepE : Task-Dependencies | task : 'TaskE , tasks : 'TaskC >
+***  	< 'TaskDepF : Task-Dependencies | task : 'TaskF , tasks : 'TaskB > .
+
+    eq initial-config =
+   	< 'Track1 : Track | start : 0 >
+	< 'TaskB : Task | duration : 2 , start : -1 , end : -1 , track : 'notset > .
+
+
+endm)
+
+
+*** examples
+***(
+ (search initial-config =>! C:Configuration < 'TaskB : Task | track : Tr:Oid > such that Tr:Oid =/= 'notset .)
+)

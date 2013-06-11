@@ -1,0 +1,69 @@
+***
+*** started off as a copy of higherorder1.maude
+***
+*** experiment: recursive inclusion of modules / theories to construct arbitrarily complex function signatures
+***
+
+fmod AP{X :: TRIV, Y :: TRIV} is
+  sort Func{X,Y} .
+  op __ : Func{X,Y} X$Elt -> Y$Elt [prec 17] .
+endfm
+
+*** a theory for a function that takes 1 arg
+fth FUNC1 is
+  including TRIV .
+  including AP{Elt,Elt} .
+endfth
+*** or are all these attempts superfluous; i.e. already captured in the one highe order construct?
+*** test this by attempting to
+***   - build lists of functions of a certain type
+***   - add an extra level of indirection: a function that expects as args:
+***      - a function that takes a function arg
+***      - a function that takes a Nat
+***      - a Nat
+fmod AP''{F :: FUNC1, X :: TRIV, Y :: TRIV} is
+  sort Func{F,Y} .
+  op __ : Func{F,X} X$Elt -> Y$Elt [prec 17] .
+endfm
+
+
+fmod APNAT2NAT{F :: FNAT2NAT}
+  including AP{F,NAT} .  *** gives us sort Func{Func{X,Y},
+endfm
+
+fmod TESTNAT2NAT is
+  pr APNAT2NAT{} .
+  var N : Nat .
+  op inc : -> Func{Nat,Nat} .
+  eq inc[N] = N + 1 .
+  op ap_n2n : ->  
+endfm
+
+fmod LIST-MAP{X :: TRIV, Y :: TRIV} is
+  inc AP{X,Y} .
+  pr LIST{X} .
+  pr LIST{Y} .
+  var E : X$Elt .
+  var L : List{X} .
+  var F : Func{X,Y} .
+  op map : List{X} Func{X,Y} -> List{Y} .
+  eq map(nil, F) = nil .
+  eq map(E L, F) = F[E] map(L, F) .
+endfm
+
+fmod TEST is
+  pr LIST-MAP{Nat,String} .
+  pr CONVERSION .
+  var N : Nat .
+  op ordinal : -> Func{Nat,String} .
+  eq ordinal[N] = string(N, 10) +
+    if (N quo 10) rem 10 == 1 then "th"
+    else
+      if N rem 10 == 1 then "st"
+      else if N rem 10 == 2 then "nd"
+      else if N rem 10 == 3 then "rd"
+      else "th" fi fi fi
+    fi .
+endfm
+
+red map(1 2 3 5 7 11 13 17 19 23, ordinal) .

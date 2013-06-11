@@ -1,0 +1,19 @@
+fmod TEST1 is
+    protecting BOOL .
+    sort Eddie .
+    op one : -> Eddie .
+    op two : -> Eddie .
+    op _and_ : Eddie Eddie -> Bool .
+    vars E1 E2 : Eddie .
+    eq one and one = true .
+    eq E1 and E2 = false .
+endfm
+
+fmod SORTTEST is
+    protecting QID .
+    protecting BOOL .
+    op sorteq__ : Qid Qid -> Bool .
+    vars T1 T2 : Qid .
+    eq sorteq T1 T1 = true .
+    eq sorteq T2 T2 = false .
+endfm

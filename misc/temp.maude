@@ -1,0 +1,13 @@
+fmod FOO is
+
+sort Foo FooSet .
+subsort Foo < FooSet .
+
+op a b c d e f : -> Foo .
+op __ : FooSet FooSet -> FooSet .
+
+--- idempotency
+var F : Foo .
+eq F F = F .
+
+endfm

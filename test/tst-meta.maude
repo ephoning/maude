@@ -1,0 +1,37 @@
+fmod META-TEST is
+    inc META-LEVEL .
+
+    sorts Foo FooSet .
+    subsort Foo < FooSet .
+
+    vars F F1 F2 : Foo .
+    vars FS FS' FS1 FS2 : FooSet .
+
+    op nil : -> FooSet .
+    ops a b c d e f : -> Foo .
+    --- provides construction + union
+    op __ : FooSet FooSet -> FooSet [ctor comm assoc id: nil] .
+    --- idempotency
+    var E : Foo .
+    eq E E = E .
+    --- membership
+    op _in_ : Foo FooSet -> Bool .
+    eq F in F FS = true .
+    eq F in FS = false [owise] .
+    --- set equality: no need to define; is "built-in"
+    --- op _==_ : FooSet FooSet -> Bool .
+    --- eq FS == FS = true .
+    --- eq FS == FS' = false [owise] .
+    --- difference (all elements in 1st set not in 2nd set)
+    op _diff_ : FooSet FooSet -> FooSet .
+    eq FS1 diff FS2 = FS1 diff FS2 acc nil .
+    op _diff_acc_ : FooSet FooSet FooSet -> FooSet .
+    eq nil diff FS2 acc FS = FS .
+    eq FS1 diff nil acc FS = FS1 FS .
+    eq (F1 FS1) diff (F1 FS2) acc FS = FS1 diff FS2 acc FS .
+    eq (F1 FS1) diff FS2 acc FS = FS1 diff FS2 acc F1 FS [owise] .    
+
+endfm
+
+---red in META-TEST : upTerm((a b c)) .
+---red in META-TEST : downTerm('__['a.Foo,'b.Foo,'c.Foo], true) .

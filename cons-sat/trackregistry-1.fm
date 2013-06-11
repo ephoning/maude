@@ -1,0 +1,20 @@
+view List{A :: TRIV} from TRIV to LIST{A} is
+    sort Elt to List{A} .
+endv
+
+fmod TRACK-REGISTRY is
+    pr QID .
+    pr INT .
+
+    sort TREntry .
+    op (_,_) : Qid Int -> TREntry [ctor].
+
+    pr LIST{TREntry} .
+
+    sort TrackRegistry .
+    subsort  List{TREntry} < TrackRegistry .
+
+    op initial-track-registry : -> TrackRegistry .
+    eq initial-track-registry = ('TrackA, 0) ('TrackB, 0) ('TrackC, 0) .
+
+endfm

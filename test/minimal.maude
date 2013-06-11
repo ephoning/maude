@@ -1,0 +1,25 @@
+fth MINIMAL is
+kind Symbol[].
+kind Expression[SentConstant Formula Theorem].
+****************************************************** kinds
+*** *** Symbol
+op <ASCII-identifiers> : -> Symbol .
+*** *** Expression
+op <integer> : -> Expression .
+op [_,_,_] : Symbol Expression Expression -> Expression .
+vars A B C : Expression .
+****************************************************** sorts
+*** *** SentConstant
+mb <integers> : SentConstant .
+*** *** Formula
+cmb A : Formula if A : SentConstant .
+cmb [->, A, B]: Formula if A : Formula /\ B : Formula .
+*** *** *** Theorem
+cmb [->, A, [->, B, A]] : Theorem
+    if A : Formula /\ B : Formula .
+cmb [->, [->, A, B], [->, [->, [A, [->, B, C]]], [->, A, C]]] : Theorem
+    if A : Formula /\ B : Formula /\ C : Formula .
+cmb B : Theorem
+    if A : Formula /\ B : Formula
+    /\ A : Theorem /\ [->, A, B]: Theorem .
+endfth

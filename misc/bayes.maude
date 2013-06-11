@@ -1,0 +1,7 @@
+(***
+implement bayesian probability calculation:
+
+    P(A|B) = P(B|A) P(A)
+             -----------
+                 P(B)
+***)

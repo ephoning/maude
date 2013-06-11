@@ -1,0 +1,421 @@
+*** EPH 12/09/10 
+*** - output format improvements
+***  note: introduced a specific constructor for 'task id' ("sub-type" of Oid), so we can attach output format details to instances of this type
+***
+*** resource object only keep track a their 'end' attribute (i.e. 'end + 1' is the first time location available to resource clients)
+*** the guaranteed presence of an 'end' attribute is taken advantage of in rules: it allows the actual object
+*** class to be variable - if needed
+***
+*** strategy
+*** - register tasks currently scheduled (i.e., track assigned) in 'env' object
+*** - scheduling rule gate keeper for a task with dependencies is that the task's dependency set
+***   is unifyable with the 'currently scheduled tasks' set in 'env'
+*** - note that the rule to schedule a task with a single dependency is subsumed by the above strategy
+***   => remove the 'single-dep' rule
+***
+*** state: in progress
+***
+*** roadmap:
+*** - support multiple dependencies  DONE
+***
+*** - refactor to improve abstraction (e.g., "externalize" track 'from' calculation)  DONE
+***
+*** - improve result representation for clarity/readability  DONE
+***   e.i., color coding of start/end times, indentation, etc.  DONE
+*** - 'specialize' tasks in order to allow for distict approaches to 'duration' calculation
+***    e.g., 'fixed', 'proportional', etc.  DONE
+***
+*** - refactor to make 'track' an instance of a 'resource'   DONE
+*** - add support for additional 'resource' types            DONE
+***
+*** - allow a task to be 'pre-scheduled'; i.e., already tied to a specific resource instance set and time slot
+***   prior to starting a search
+***   note: this will require tracking resource allocation time slot vs. just resource 'end' time as we are no longer
+***         checking a resource's 'end' time to allocate it, but we might approach a resource from underneath, so its
+***         'start' time has to be taken into account as well to avoid resource instance over-allocation
+***
+*** - define a 'load factor' as part of the assoc between a task and a resource type
+***   for a 'track/thread' resource, each task will have the assoc and a load factor of 1
+***   but for other resource types this could be different. example:
+***   resource type: DB connection
+***   task 1: needs 1 DB connection => load factor == 1
+***   task 2: needs 3 DB connections => load factor == 3
+***   task 3: does not need a DB connection => load factor == 0, or assoc 'entry' for this task - resource type pair is absent
+*** - define a 'load factor' as part of the assoc between a task and a resource type
+***
+*** - 'externalize' testing framework and test instances
+***
+*** - refactor to make types more distinct where appropriate (TaskId vs. plain Qid?, etc.)   DONE
+***
+*** - translate 'start' 'end' attributes to time of day
+***
+*** - transition to 'full maude' to take advantage of full OO capabilities (subclassing, etc.)?
+***
+*** - switch search invocation over to meta-level, allowing capture of results and further processing;  DONE
+***   e.g., automated constrainst sharpening to automatically find optimal schedule
+***
+*** - capture more of the meta search result triple in order to show the actual solution in terms of both 'overall completion time'   DONE
+***   and finalized task object with their assigned start, end, resource allocation, etc. details    DONE
+
+mod CS-EXP-7-CORE is
+    pr META-LEVEL .
+    inc QID .
+    inc CONFIGURATION .
+    pr INT .
+
+    sort TaskId .
+    subsort TaskId < Oid .
+    op task[_] : Int -> TaskId [ctor format (n d d d d)] .
+
+    subsort Qid < Oid .
+
+    sort Oids .
+    subsort Oid < Oids .
+    op no-Oids : -> Oids .
+    op _&_ : Oids Oids -> Oids [ctor assoc comm id: no-Oids ] .
+
+    sort Cids .
+    subsort Cid < Cids .
+    op no-Cids : -> Cids .
+    op _&_ : Cids Cids -> Cids [ctor assoc comm id: no-Cids ] .
+
+    sort TaskType .
+    op FIXED : -> TaskType .  --- fixed duration
+    op PROP : -> TaskType . --- duration proportional to a "master duration" carried in 'env'
+
+    op Connection : -> Cid [ctor format (m on)] . --- a resoruce of type 'DB connection'
+    op Duration : -> Cid [ctor] .
+    op Environment : -> Cid [ctor] .
+    op ResourceDependencies : -> Cid [ctor] . --- association between a task and a set of resource types it is dependent on
+    op Task : -> Cid [ctor] .
+    op TaskDependencies : -> Cid [ctor] . --- association between a task and a set of tasks it is dependent on
+    op TaskEnd : -> Cid [ctor] .
+    op Track : -> Cid [ctor format (m on)] . --- a resource of type 'track/thread'
+
+    --- Env attributes
+    op duration-unit :_ : Int -> Attribute [ctor] . --- multiplier for 'proportional' task durations
+    op end-ceiling :_ : Int -> Attribute [ctor format (d d b o) gather (&)] .  --- overall completion time
+    op scheduled-tasks :_ : Oids -> Attribute [ctor] .  --- currently scheduled tasks
+    op task-ends :_ : Configuration -> Attribute [ctor] . --- end times of currently scheduled tasks
+
+    --- Task attributes
+    op start :_ : Int -> Attribute [ctor format (d d g o) gather (&)] .
+    op duration :_ : Object -> Attribute [ctor] .
+    op used-resources :_ : Oids -> Attribute [ctor] .
+
+    --- TaskDep attributes
+    op tasks :_ : Oids -> Attribute [ctor] .
+
+    --- Track attributes
+
+    --- Duration attributes
+    op type :_ : TaskType -> Attribute [ctor] .
+    op factor :_ : Int -> Attribute [ctor] . --- task duration multiplier
+    op val :_ : Int -> Attribute [ctor] . --- actual duration (fixed or calculated)
+
+    --- RsrcDeps attributes
+    op resources :_ : Cids -> Attribute [ctor] . --- types of resources
+
+    --- shared attributes
+    op task :_ : Oid -> Attribute [ctor] .
+    op end :_ : Int -> Attribute [ctor format (d d r o) gather (&)] .
+
+
+    --- used to bootstrap processing
+    op initialize : -> Msg [ctor] .
+    --- used to indicate 'prep mode' (i.e. ONLY use prep rules in the presence of a 'prep' msg)
+    --- this forces alternation between prep and schedule rule application; this is needed to avoid
+    --- multiple consecutive applications of prep rules, which otherwise would result in configurations with multiple
+    --- "queued up" schedule messages that would, when used to schedule tasks, result in overlapping tasks
+    --- on a single track
+    --- in short: this mechanism results in the strict "pairing" of a prep and schedule "invocation"
+    op prep : -> Msg [ctor] .
+    op schedule-prep : Oid Int Int Cids Configuration -> Msg [ctor] .
+    op schedule : Oid Int Int Configuration -> Msg [ctor] .
+
+    --- general rule composition strategies
+    --- - unused object attributes are ideally represented by 'A:AttributeSet'
+    --- - accumulators - if present - are the last argument in a message specification
+
+    --- carry out initialization on the configuration (if any)
+    rl [initialize] :
+	initialize
+      =>
+	prep . --- signal 'prep mode'
+
+    --- rules ---
+    --- operational semantics
+    --- - always use rules to extract (through unification) a set of objects and/or messages
+    ---   as this provides the 'breadth first' search strategy support. therfore: NEVER use
+    ---   aux. functions/operator to accomplish this "manually"
+    --- scheduling rules ---
+    --- strategy:
+    --- - iteration is accomplished through tracking a 'collection' as a message argument
+    ---   each iteration reduces the collection instance size by 1
+    ---   iteration completion is accomplished by unification with 'no-Oids'
+    ---   note that by virtue of message pattern matching in rules as we attempt to step through
+    ---   potentially expected collection member, we force semi-seuenced rule application
+    ---   the absence of an 'iteration' completion flag message prevent premature triggering
+    ---   of rules not part of the iteration processing operation
+    ---
+    --- - use messages to accumulate resource instance, duration, etc, info
+    --- - use unification on partial multisets to "peel off" resource type labels
+    ---   each of which is used in a resource type specific schedule prep rule to
+    ---   have rule matching against *current* configuration select a resource instance
+    ---   ultimately, the 'no-Cids' resource type dependencies multiset signals completion
+    ---   of resource instance selection, thus we can finalize actual scheduling for the *current* task
+
+    --- phase 1: schedule track to a task without pre-task dependency
+    --- calc task duration + fetch resource dependencies
+    rl [schedule-no-task-deps-prep] :
+	prep
+	< Tsk:Oid : Task | start : -1 , end : -1 ,  duration : DurObj:Object , used-resources : no-Oids  >
+ 	< 'td : TaskDependencies | task : Tsk:Oid , tasks : no-Oids >
+ 	< 'rd : ResourceDependencies | task : Tsk:Oid , resources : RDeps:Cids >
+	< E:Oid : Environment | duration-unit : DurUnit:Int , A:AttributeSet >
+    =>
+	schedule-prep(Tsk:Oid, -1, calc-duration(DurUnit:Int, DurObj:Object), RDeps:Cids, none)
+	< Tsk:Oid : Task | start : -1 , end : -1 ,  duration : DurObj:Object , used-resources : no-Oids  >
+ 	< 'td : TaskDependencies | task : Tsk:Oid , tasks : no-Oids >
+ 	< 'rd : ResourceDependencies | task : Tsk:Oid , resources : RDeps:Cids >
+	< E:Oid : Environment | duration-unit : DurUnit:Int , A:AttributeSet > .
+
+    --- phase 1: schedule track to a task with 1 or more pre-task dependencies
+    --- calc task duration + fetch resource dependencies
+    crl [schedule-task-deps-prep] :
+	prep
+	< Tsk:Oid : Task | start : TskStart:Int , end : -1 ,  duration : DurObj:Object , used-resources : no-Oids  >
+ 	< 'td : TaskDependencies | task : Tsk:Oid , tasks : PreTsks:Oids >
+ 	< 'rd : ResourceDependencies | task : Tsk:Oid , resources : RDeps:Cids >
+	< E:Oid : Environment | duration-unit : DurUnit:Int ,
+				scheduled-tasks : (SchedTsks:Oids & PreTsks:Oids) , --- scheduling preconditions met  if 'PreTsks' unifies with a part of 'scheduled-tasks'
+				task-ends : TskEnds:Configuration,
+				A:AttributeSet >
+    =>
+	schedule-prep(Tsk:Oid, max-taskend-end(TskStart:Int, PreTsks:Oids, TskEnds:Configuration), calc-duration(DurUnit:Int, DurObj:Object), RDeps:Cids, none)
+	< Tsk:Oid : Task | start : -1 , end : -1 ,  duration : DurObj:Object , used-resources : no-Oids  >
+ 	< 'td : TaskDependencies | task : Tsk:Oid , tasks : PreTsks:Oids >
+ 	< 'rd : ResourceDependencies | task : Tsk:Oid , resources : RDeps:Cids >
+	< E:Oid : Environment | duration-unit : DurUnit:Int ,
+				scheduled-tasks : (SchedTsks:Oids & PreTsks:Oids) ,
+				task-ends : TskEnds:Configuration,
+				A:AttributeSet >
+    if PreTsks:Oids =/= no-Oids .
+
+    --- phase 2: determine 'max' across resources and schedule across resources
+    --- resource instance selection completed
+    rl [schedule-no-resource-prep] :
+	schedule-prep(Tsk:Oid, MaxTskEnd:Int, TskDur:Int, no-Cids, Rsrcs:Configuration)
+      =>
+	schedule(Tsk:Oid, max(MaxTskEnd:Int, max-resource-end(Rsrcs:Configuration)) + 1, TskDur:Int, Rsrcs:Configuration) .
+    --- resource instance selection
+    rl [schedule-resource-prep] :
+	schedule-prep(Tsk:Oid, MaxTskEnd:Int, TskDur:Int, (RDep:Cid & RDeps:Cids) , Rsrcs:Configuration)
+	< RId:Oid : RDep:Cid | A:AttributeSet >
+      =>
+	schedule-prep(Tsk:Oid, MaxTskEnd:Int, TskDur:Int, RDeps:Cids , (< RId:Oid : RDep:Cid | A:AttributeSet > Rsrcs:Configuration ) )
+	< RId:Oid : RDep:Cid | A:AttributeSet > .
+
+    --- phase 3: update task to finalize scheduling + signal return to 'prep' mode
+    --- resource instance update completed
+     rl [schedule-no-resource] :
+	schedule(Tsk:Oid, TskStart:Int, TskDur:Int, none)
+	< Tsk:Oid : Task | start : -1 , end : -1 , duration : < 'du : Duration | val : Val:Int , A':AttributeSet > , A'':AttributeSet >
+	< E:Oid : Environment | end-ceiling : EndCeil:Int ,
+				scheduled-tasks : SchedTsks:Oids ,
+				task-ends : TskEnds:Configuration ,
+				A:AttributeSet >
+      =>
+	prep --- signal return to 'prep mode'
+	< Tsk:Oid : Task | start : TskStart:Int , end : (TskStart:Int + TskDur:Int ) + -1 , duration :  < 'du : Duration | val : TskDur:Int , A':AttributeSet > , A'':AttributeSet  >
+	< E:Oid : Environment | end-ceiling : max( EndCeil:Int, TskStart:Int + TskDur:Int) ,
+				scheduled-tasks : (SchedTsks:Oids & Tsk:Oid) ,
+				task-ends : ( < 'te : TaskEnd | task : Tsk:Oid , end : (TskStart:Int + TskDur:Int) + -1 > TskEnds:Configuration ) ,
+                                A:AttributeSet > .
+    --- update resource instance's end time + add to task as a 'used resource'
+    rl [schedule-resource] :
+	schedule(Tsk:Oid, TskStart:Int, TskDur:Int, < Rid:Oid : RDep:Cid | A:AttributeSet > Rsrcs:Configuration)
+ 	< Rid:Oid : RDep:Cid | end : E:Int >
+	< Tsk:Oid : Task | used-resources : RIds:Oids , A':AttributeSet >
+      =>
+	schedule(Tsk:Oid, TskStart:Int, TskDur:Int, Rsrcs:Configuration)
+	< Rid:Oid : RDep:Cid | end : (TskStart:Int + TskDur:Int) + -1 >
+	< Tsk:Oid : Task | used-resources : (Rid:Oid & RIds:Oids) , A':AttributeSet > .
+
+
+    --- determine the max 'end' value in a set of TaskEnd instances
+    --- (filtered on the basis of a track's presence in a task list)
+    --- note that final/actual start time will also have to take allocated resources' availability time into account
+    op max-taskend-end : Int Oids Configuration -> Int .
+    eq max-taskend-end(I:Int, Ts:Oids, C:Configuration) =
+	max(I:Int, max-taskend-end'(filter-config(Ts:Oids, C:Configuration))) .
+    op max-taskend-end' : Configuration -> Int .
+    eq max-taskend-end'(C:Configuration) =
+	max-taskend-end''(C:Configuration, -1) .
+    op max-taskend-end'' : Configuration Int -> Int .
+    eq max-taskend-end''(none, M:Int) =
+	M:Int .
+    eq max-taskend-end''( < 'te : TaskEnd | task : T:Oid , end : E:Int > C:Configuration, M:Int) =
+	max-taskend-end''(C:Configuration, max(E:Int, M:Int)) .
+
+    op filter-config : Oids Configuration -> Configuration .
+    eq filter-config(Ts:Oids, C:Configuration) =
+	filter-config'(Ts:Oids, C:Configuration, none) .
+    op filter-config' : Oids Configuration Configuration -> Configuration .
+    eq filter-config'( T:Oid, ( < TE:Oid : TaskEnd | task : T:Oid , end : E:Int > C':Configuration), C:Configuration) =
+	< TE:Oid : TaskEnd | task : T:Oid , end : E:Int > C:Configuration .
+    eq filter-config'( (T:Oid & Ts:Oids), ( < TE:Oid : TaskEnd | task : T:Oid , end : E:Int > C':Configuration), C:Configuration) =
+	filter-config'(Ts:Oids, C':Configuration, ( < TE:Oid : TaskEnd | task : T:Oid , end : E:Int > C:Configuration)) .
+	
+    --- calculate task duration on the basis of duration type and appropriate additional data
+    op calc-duration : Int Object -> Int .
+    eq calc-duration(D:Int, < 'du : Duration | type : PROP , factor : F:Int , val : V:Int > ) =
+	D:Int * F:Int .
+    eq calc-duration(D:Int, < 'du : Duration | type : FIXED , val : V:Int > ) = 
+	V:Int .
+
+    --- determine the max 'end' value in a set of resource instances
+    op max-resource-end : Configuration -> Int .
+    eq max-resource-end(C:Configuration) = 
+	max-resource-end'(C:Configuration, -1) .
+    op max-resource-end' : Configuration Int -> Int .
+    eq max-resource-end'(none, M:Int) = 
+	M:Int .
+    eq max-resource-end'( < O:Oid : CL:Cid | end : E:Int > C:Configuration, M:Int) =
+	max-resource-end'(C:Configuration, max(E:Int, M:Int)) .
+ 
+endm
+
+***** 'UI' based on meta-level invocation *****
+mod CS-EXP-7 is
+    pr META-LEVEL .
+    inc CS-EXP-7-CORE .
+
+    --- task set and overall completion time
+    sort SolveTuple .
+    op _;_ : Configuration Int -> SolveTuple [ctor format (d d n! d)] .
+    op failure : -> SolveTuple [ctor] .
+    *** projection functions
+    op getTasks : SolveTuple -> Configuration .
+    eq getTasks(C:Configuration ; I:Int) =
+	C:Configuration .
+    op getCompletionTime : SolveTuple -> Int .
+    eq getCompletionTime(C:Configuration ; I:Int) =
+	I:Int .
+
+    op resultTriple>>SolveTuple : ResultTriple -> SolveTuple .
+    --- a 'metaSearch' failure outcome results in in a 'failure' SolveTuple, allow us to stop further searches (see: solve''')
+    eq resultTriple>>SolveTuple((failure).ResultTriple?) =
+	failure .
+    eq resultTriple>>SolveTuple(RT:ResultTriple) =
+	filterKeepTasks(downTerm(getTerm(extractConfigurationSubstitution(getSubstitution(RT:ResultTriple))), none))
+	;
+	downTerm(getTerm(extractResultSubstitution(getSubstitution(RT:ResultTriple))), -1) .
+
+    ***** top-level entry point *****
+    op solve : Configuration -> SolveTuple .
+    eq solve(C:Configuration) =
+	solve'(C:Configuration, getUpperBound(C:Configuration)) .
+
+    *** helper functions to force looped improvement of search target value (Try:Int)
+    op solve' : Configuration Int -> SolveTuple .
+    eq solve'(C:Configuration, upperBound:Int) =
+	solve''(C:Configuration, upperBound:Int, (none ; -1)) .
+
+    op solve'' : Configuration Int SolveTuple -> SolveTuple .
+    eq solve''(C:Configuration, Try:Int, Best:SolveTuple) =
+	solve'''(C:Configuration, Try:Int, Best:SolveTuple, search(C:Configuration, Try:Int)) .
+
+    op solve''' : Configuration Int SolveTuple SolveTuple -> SolveTuple .
+    eq solve'''(C:Configuration, Try:Int, Best:SolveTuple, Result:SolveTuple) =
+      if Result:SolveTuple == failure then Best:SolveTuple else solve''(C:Configuration, getCompletionTime(Result:SolveTuple), Result:SolveTuple) fi .
+      
+    op search : Configuration Int -> SolveTuple .
+    eq search(C:Configuration, Target:Int) =
+	resultTriple>>SolveTuple(
+	  metaSearch(
+	    --- meta-representation of module
+	    upModule('CS-EXP-7-CORE, false),
+	    --- meta-representation of initial configuration
+	    upTerm( initialize C:Configuration ),
+	    --- meta-representation of target configuration ('hard-coded' to allow reference to captured result in variable 'Result:Int')
+	    '__['C:Configuration,'<_:_|_>[''e.Sort,'Environment.Cid,'_`,_['A:AttributeSet,'end-ceiling`:_['Result:Int]]]],
+	    --- neta-representation of condition clause ('hard-coded' to allow reference to 'Result:Int', but with substitution of actual target value)
+	    '_<_['Result:Int, upTerm(Target:Int)] = 'true.Bool,
+	    '!, unbounded, 0)) .
+
+    --- extract the 'result' substitution from a substitution set through unification
+    op extractResultSubstitution : Substitution -> Substitution .
+    eq extractResultSubstitution( 'Result:Int <- T:Term ; S:Substitution ) = 'Result:Int <- T:Term .
+
+    --- extract the 'Configuration' substitution from a substitution set through unification
+    op extractConfigurationSubstitution : Substitution -> Substitution .
+    eq extractConfigurationSubstitution( 'C:Configuration <- T:Term ; S:Substitution ) = 'C:Configuration <- T:Term .
+
+
+    --- filter a configuration, only keeping 'Task' objects
+    op filterKeepTasks : Configuration -> Configuration .
+    eq filterKeepTasks(C:Configuration) =
+	filterKeepTasks'(C:Configuration, none) .
+    op filterKeepTasks' : Configuration Configuration -> Configuration .
+    eq filterKeepTasks'(none, Accu:Configuration) =
+	Accu:Configuration .
+    eq filterKeepTasks'((< Tid:Oid : Task | A:AttributeSet > C:Configuration), Accu:Configuration) =
+	filterKeepTasks'(C:Configuration, (< Tid:Oid : Task | A:AttributeSet > Accu:Configuration)) .
+    eq filterKeepTasks'(C:Configuration, Accu:Configuration) =
+	Accu:Configuration [owise] .
+
+    --- determine upper bound of target value
+    op getUpperBound : Configuration -> Int .
+    eq getUpperBound(C:Configuration) =
+	1000 . --- TODO (should realy be based on task set and duration unit in configuration that is to be searched)
+
+    *** projection functions
+    op getVariable : Assignment -> Variable .
+    eq getVariable( V:Variable <- T:Term ) = V:Variable .
+    op getTerm : Assignment -> Term .
+    eq getTerm( V:Variable <- T:Term ) = T:Term .
+
+endm
+
+***** unit + integration tests *****
+
+mod CS-EXP-7-UNIT-TESTS is
+    pr CS-EXP-7 .
+
+    op test-config-deps : -> Configuration .
+    eq test-config-deps =
+	< 'e : Environment | duration-unit : 4 , end-ceiling : -1 , scheduled-tasks : no-Oids , task-ends : none >
+
+	--- resources
+	< 'trackA : Track | end : -1 >
+	< 'trackB : Track | end : -1 >
+
+	< 'conn1 : Connection | end : -1 >
+
+	--- tasks
+	< task[1] : Task | start : -1 , end : -1 , duration : < 'du : Duration | type : FIXED , val : 7 > , used-resources : no-Oids >
+	< task[2] : Task | start : -1 , end : -1 , duration : < 'du : Duration | type : FIXED , val : 30 > , used-resources : no-Oids > 
+	< task[3] : Task | start : -1 , end : -1 , duration : < 'du : Duration | type : PROP , factor : 3 , val : -1 >  , used-resources : no-Oids >
+	< task[4] : Task | start : -1 , end : -1 , duration : < 'du : Duration | type : FIXED , val : 7 > , used-resources : no-Oids >
+	< task[5] : Task | start : -1 , end : -1 , duration : < 'du : Duration | type : FIXED , val : 8 > , used-resources : no-Oids >
+	< task[6] : Task | start : -1 , end : -1 , duration : < 'du : Duration | type : FIXED , val : 2 > , used-resources : no-Oids >
+
+	--- dependencies
+	< 'td : TaskDependencies | task : task[1] , tasks : no-Oids >
+	< 'td : TaskDependencies | task : task[2] , tasks : no-Oids >
+	< 'td : TaskDependencies | task : task[3] , tasks : (task[1] & task[2]) > 
+	< 'td : TaskDependencies | task : task[4] , tasks : task[1] > 
+	< 'td : TaskDependencies | task : task[5] , tasks : task[3] > 
+	< 'td : TaskDependencies | task : task[6] , tasks : task[1] > 
+
+	< 'rd : ResourceDependencies | task : task[1] , resources : (Track & Connection) >
+	< 'rd : ResourceDependencies | task : task[2] , resources : Track >
+	< 'rd : ResourceDependencies | task : task[3] , resources : (Track & Connection) >
+	< 'rd : ResourceDependencies | task : task[4] , resources : Track >
+	< 'rd : ResourceDependencies | task : task[5] , resources : Track >
+	< 'rd : ResourceDependencies | task : task[6] , resources : Track > .
+
+
+endm
+

@@ -1,0 +1,40 @@
+fmod SIMPLE-NAT is
+    sort SNat .
+
+    op 0 : -> SNat .
+    op s_ : SNat -> SNat .
+    op _+_ : SNat SNat -> SNat .
+    vars N M : SNat .
+    eq 0 + N = N .
+    eq s N + M = s (N + M) .
+endfm
+
+fmod SIMPLE-BOOL is
+    sort SBool .
+    var SB : SBool .
+
+    op true : -> SBool .
+    op false : -> SBool .
+
+    op !_ : SBool -> SBool .
+    eq ! true = false .
+    eq ! false = true .
+
+    op _/\_ : SBool SBool -> SBool .
+    eq true /\ SB = SB .
+    eq false /\ SB = false .
+
+    op _\/_ : SBool SBool -> SBool .
+    eq true \/ SB = true .
+    eq false \/ SB = SB .
+endfm
+
+*** examples
+red ! true .
+red ! false .
+red ! (false \/ false ) .
+red true /\ false .
+red false \/ true .
+
+fmod QSORT is
+endfm

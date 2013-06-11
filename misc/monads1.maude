@@ -1,0 +1,12 @@
+***
+*** experiment in higher order func prog: monadic computation
+***
+*** steps:
+*** - 1. function sequencing
+*** - 2. "parallel / hidden" on-the-side computation
+*** - 3. combine 1. and 2.
+*** - poymorphic extension
+***
+
+mod SEQ
+end

@@ -1,0 +1,50 @@
+mod TrEntry is
+    pr INT .
+    inc CONFIGURATION .
+    sort TREntry .
+    op (_,_) : Oid Int -> TREntry [ctor] .
+endm
+
+view TrEntry from TRIV to TrEntry is
+    sort Elt to TREntry .
+endv
+
+mod TRACK-REGISTRY is
+
+    pr LIST{TrEntry} .
+
+    sort TrackRegistry .
+    subsort  List{TrEntry} < TrackRegistry .
+
+    ops TrackA TrackB TrackC : -> Oid [ctor] .
+    op initial-track-registry : -> TrackRegistry .
+    eq initial-track-registry = (TrackA, 0) (TrackB, 0) (TrackC, 0) .
+
+endm
+
+mod TASK-SCHED-CONS-SAT is
+    inc QID .
+    inc CONFIGURATION .
+    inc TRACK-REGISTRY .
+
+    subsort Qid < Oid .
+
+    op Env : -> Cid [ctor] .
+    op treg :_ : TrackRegistry -> Attribute [ctor gather (&)] .
+
+    op tst : Oid -> Msg [ctor] .
+
+    vars E O : Oid .
+    var TR : TrackRegistry .
+
+    rl [test] :
+	tst(O)
+	< E : Env | treg : TR >
+    =>
+	< E : Env | treg : initial-track-registry > .
+
+endm
+
+
+*** rew tst('A) < 'E : Env | treg : initial-track-registry > .
+*** rew < 'E : Env | treg : initial-track-registry > .

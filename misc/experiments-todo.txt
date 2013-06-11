@@ -1,0 +1,9 @@
+- set uquality check as per commutativity
+- reduction of experssions consisting of non ground terms (see pg. 32 of [1])
+- support for 'idr' attribute? (OBJ3)
+- support for echo comment: ***> (OBJ3)
+  RESULT: yes, supported in Meude
+
+
+[1] Algebraic semantics of imperative programs
+

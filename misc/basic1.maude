@@ -1,0 +1,19 @@
+(***
+  experimenting with operators and equations
+  
+  operators are really 'term constructors' (i.e., composing a term of the type as referenced to the right of the '->')
+  equations are rewrite rules that are applied whenever possible to arrive at a term's canonical/normal form
+)
+
+fmod BASIC1 is
+    sort BB .
+    op b : -> BB .
+    op bb_ : BB -> BB .
+    
+    var B : BB .
+    eq bb bb B = B .
+endfm
+
+red b .
+red bb b .
+red bb bb b .
