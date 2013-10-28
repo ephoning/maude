@@ -1,0 +1,115 @@
+***
+*** Tower Of Hanoi
+***
+*** LTL version
+*** 
+*** E.Honing oct 2013
+***
+in model-checker.maude
+
+fmod RUNSTATE is
+    sort RunState .
+endfm
+
+view RunState from TRIV to RUNSTATE is
+    sort Elt to RunState .
+endv
+
+fmod STACK is
+    sort Stack .
+endfm
+
+view Stack from TRIV to STACK is
+    sort Elt to Stack .
+endv
+
+mod TOH is
+
+    pr QID .
+    sort PegId .
+    subsort PegId < Qid .
+    ops a b c : -> PegId [ctor] .
+
+    sort Path .
+    op nilp : -> Path .
+    op [_,_] : PegId PegId -> Path [ctor] .
+    op __ : Path Path -> Path [assoc id: nilp] .
+
+    inc NAT .
+    inc STACK .
+    inc LIST{Nat} .
+    op [_,_] : PegId List{Nat} -> Stack [ctor] .
+    inc SET{Stack} .
+    
+    inc RUNSTATE .
+    inc SET{RunState} .
+ 
+    op <_> : Set{Stack} -> RunState [ctor] .
+    op <_/_/_> : Set{Stack} Path Set{RunState} -> RunState [ctor] .
+
+    vars PID1 PID2 : PegId .
+    vars PILE1 PILE2 : List{Nat} .
+    vars STACK3 : Stack .
+    var P : Path .
+    var H : Set{RunState} .
+
+    crl [move-to-empty] :
+	< [ PID1 , PILE1 ] , [ PID2 , nil ] , STACK3 / 
+          P / 
+          H > 
+    =>
+        < [ PID1 , tail(PILE1) ] , [ PID2 , head(PILE1) ] , STACK3  /
+          P [ PID1 , PID2 ] /
+          H , < [ PID1 , tail(PILE1) ] , [ PID2 , head(PILE1) ] , STACK3 > >
+    if
+        size(PILE1) > 0 /\ 
+	not < [ PID1 , tail(PILE1) ] , [ PID2 , head(PILE1) ] , STACK3 > in  H .
+
+    crl [move-to-bigger] :
+	< [ PID1 , PILE1 ] , [ PID2 , PILE2 ] , STACK3 / 
+          P / 
+          H > 
+    =>
+        < [ PID1 , tail(PILE1) ] , [ PID2 , head(PILE1) PILE2 ] , STACK3 /
+          P [ PID1 , PID2 ] /
+          H , < [ PID1 , tail(PILE1) ] , [ PID2 , head(PILE1) PILE2 ] , STACK3 > >
+    if
+        size(PILE1) > 0 /\ 
+	head(PILE1) < head(PILE2) /\ 
+	not < [ PID1 , tail(PILE1) ] , [ PID2 , head(PILE1) PILE2 ] , STACK3 > in H .
+
+endm
+
+mod TOH-PREDS is
+    pr TOH .
+    inc SATISFACTION .
+
+    subsort RunState < State .
+
+    op solved : -> Prop .
+    var PILE : List{Nat} .
+    var P : Path .
+    var H : Set{RunState} .
+    eq < [a,nil] , [b,PILE] , [c,nil] / P / H > |= solved = true .
+
+endm
+
+mod TOH-CHECK is
+    pr TOH-PREDS .
+    inc MODEL-CHECKER .
+    inc LTL-SIMPLIFIER .
+
+    --- start state: all disk(s) on peg a:
+    op initial1 : -> State .
+    eq initial1 = < [ a , 1 ] , [ b , nil ] , [ c , nil ] / nilp / empty > .
+    op initial2 : -> State .
+    eq initial2 = < [ a , 1 2 ] , [ b , nil ] , [ c , nil ] / nilp / empty > .
+    op initial3 : -> State .
+    eq initial3 = < [ a , 1 2 3 ] , [ b , nil ] , [ c , nil ] / nilp / empty > .
+
+endm
+
+*** red modelCheck( initial1, [] ~ solved ) .
+
+
+

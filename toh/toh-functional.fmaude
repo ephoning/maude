@@ -1,0 +1,42 @@
+***
+*** Tower Of Hanoi
+***
+*** functional version
+***
+*** E.Honing oct 2013
+***
+fmod TOH is
+    pr QID .
+    pr INT .
+
+    sort Peg .
+    subsort Peg < Qid .
+    sorts Path State .
+    subsort State < Path .
+
+    ops a b c : -> Peg [ctor] .
+    op nil : -> Path [ctor] .
+    op [_,_] : Peg Peg -> Path [ctor] .
+    op __ : Path Path -> Path [assoc id: nil] .
+    op ____ : Peg Peg Peg Int -> State .
+    op _____ : Peg Peg Peg Int Path -> State [ctor] .
+
+    op solve_ : State -> State . --- UI
+    op psolve_ : State -> State .
+    
+    vars From To Spare : Peg .
+    var PathAccu : Path .
+    var N : Int .
+
+    eq solve (From To Spare N) = psolve (From To Spare N nil) .
+
+    eq psolve (From To Spare 1 PathAccu) = 
+	PathAccu [From,To] . 
+    eq psolve (From To Spare N PathAccu) = 
+	psolve (From Spare To (N - 1) nil)
+	[From,To]
+	psolve (Spare To From (N - 1) nil) .
+    
+endfm
+
+*** red solve (a b c 4 ) .

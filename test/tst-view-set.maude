@@ -1,0 +1,44 @@
+*** 
+*** E.Honing oct 2013
+***
+*** constuct List and Set sorts paramterized with my own sort named 'State'
+
+fmod STATE is
+    inc NAT .
+    inc LIST{Nat} .
+    sort State .
+    op <_,_,_> : List{Nat} List{Nat} List{Nat} -> State [ctor] .
+endfm
+
+view State from TRIV to STATE is
+    sort Elt to State .
+endv
+
+fmod TOH is
+
+    inc LIST{State} .
+    inc SET{State} .
+
+endfm
+
+fmod TST is
+    inc TOH .
+
+    op state1 : -> State .
+    eq state1 = < 1 2 3 , nil , nil > .
+
+    op state2 : -> State .
+    eq state2 = < 1 2 3 , 4 5 , 6 7 > .
+
+    op set1 : -> Set{State} .
+    eq set1 = state1 , state2 .
+
+endfm
+
+*** testing...
+
+red empty .
+
+red state1 in set1 .
+
+red | set1 | .

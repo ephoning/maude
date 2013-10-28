@@ -1,0 +1,111 @@
+***
+*** Tower Of Hanoi
+***
+*** search version
+***
+*** note: no "search optimization" strategy functionality present => very costly
+*** e.g., revisiting earlier states in the search space is not prevented => many loops
+*** that cause an explosion in the number of maintained states / branches
+*** 
+*** E.Honing oct 2013
+***
+mod TOH is
+
+    pr QID .
+    inc NAT .
+    pr LIST{Nat} .
+
+    sorts PegId .
+    subsort PegId < Qid .
+    sorts Path State .
+    subsort State < Path .
+
+    ops a b c : -> PegId [ctor] .
+
+    op nilp : -> Path [ctor] .
+    op [_,_] : PegId PegId -> Path [ctor] .
+    op __ : Path Path -> Path [assoc id: nilp] .
+
+    op <_,_,_,_> : List{Nat} List{Nat} List{Nat} Path -> State [ctor] .
+
+    vars PA PB PC : List{Nat} .
+    var P : Path .
+
+    crl [a-to-b1] : < PA , nil , PC , P >  =>  < tail(PA) , head(PA) , PC , (P [a,b]) >  
+	if  size(PA) > 0 .
+    crl [a-to-b2] : < PA , PB , PC , P >  =>  < tail(PA) , (head(PA) PB) , PC , (P [a,b]) >  
+	if  size(PA) > 0 /\ head(PA) < head(PB) .
+
+    crl [b-to-a1] : < nil , PB , PC , P >  =>  < head(PB) , tail(PB) , PC , (P [b,a]) > 
+	if  size(PB) > 0 .
+    crl [b-to-a2] : < PA , PB , PC , P >  =>  < (head(PB) PA) , tail(PB) , PC , (P [b,a]) > 
+	if  size(PB) > 0 /\ head(PB) < head(PA) .
+
+    crl [b-to-c1] : < PA , PB , nil , P >  =>  < PA , tail(PB) , head(PB) , (P [b,c]) > 
+	if  size(PB) > 0 .
+    crl [b-to-c2] : < PA , PB , PC , P >  =>  < PA , tail(PB) , (head(PB) PC) , (P [b,c]) > 
+	if  size(PB) > 0 /\ head(PB) < head(PC) .
+
+    crl [c-to-b1] : < PA , nil , PC , P >  =>  < PA , head(PC) , tail(PC) , (P [c,b]) > 
+	if  size(PC) > 0 .
+    crl [c-to-b2] : < PA , PB , PC , P >  =>  < PA , (head(PC) PB) , tail(PC) , (P [c,b]) > 
+	if  size(PC) > 0 /\ head(PC) < head(PB) .
+
+    crl [c-to-a1] : < nil , PB , PC , P >  =>  < head(PC) , PB , tail(PC) , (P [c,a]) > 
+	if  size(PC) > 0 .
+    crl [c-to-a2] : < PA , PB , PC , P >  =>  < (head(PC) PA) , PB , tail(PC) , (P [c,a]) > 
+	if  size(PC) > 0 /\ head(PC) < head(PA) .
+
+    crl [a-to-c1] : < PA , PB , nil , P >  =>  < tail(PA) , PB , head(PA) , (P [a,c]) > 
+	if  size(PA) > 0 .
+    crl [a-to-c2] : < PA , PB , PC , P >  =>  < tail(PA) , PB , (head(PA) PC) , (P [a,c]) > 
+	if  size(PA) > 0 /\ head(PA) < head(PC) .
+
+endm
+
+mod TEST-TOH is
+
+    inc TOH .
+
+    op initial : -> State .
+    eq initial = < (1 2) , nil , nil , nilp > .
+
+    vars P1 P2 P3 : List{Nat} .
+    var PATH : Path .
+    var S : State .
+
+endm
+
+*** search for a solution matching a particular constraint ***
+***
+*** search [1] in TEST-TOH : initial =>* < P1 , P2 , P3 , PATH > such that size(P1) = 0 /\ size(P3) = 0 .
+*** or (equivalent):
+*** search [1] in TEST-TOH : initial =>* < nil , P2 , nil , PATH > .
+***
+*** some search runs:
+***
+***
+*** ==========================================
+*** mod TEST-TOH
+*** Maude> search [1] in TEST-TOH : initial =>* < nil , P2 , nil , PATH > .
+*** search in TEST-TOH : initial =>* < nil,P2,nil,PATH > .
+
+*** Solution 1 (state 18)
+*** states: 19  rewrites: 352
+*** P2 --> 1 2
+*** PATH --> [a,c] [a,b] [c,b]
+*** Maude> search [1] in TEST-TOH : < 1 2 3 , nil , nil, nilp > =>* < nil , P2 , nil , PATH > .
+*** search in TEST-TOH : < 1 2 3,nil,nil,nilp > =>* < nil,P2,nil,PATH > .
+
+*** Solution 1 (state 996)
+*** states: 997  rewrites: 19946
+*** P2 --> 1 2 3
+*** PATH --> [a,b] [a,c] [b,c] [a,b] [c,a] [c,b] [a,b]
+*** Maude> search [1] in TEST-TOH : < 1 2 3 4 , nil , nil, nilp > =>* < nil , P2 , nil , PATH > .
+*** search in TEST-TOH : < 1 2 3 4,nil,nil,nilp > =>* < nil,P2,nil,PATH > .
+
+*** Solution 1 (state 6715412)
+*** states: 6715413  rewrites: 141187561
+*** P2 --> 1 2 3 4
+*** PATH --> [a,c] [a,b] [c,b] [a,c] [b,a] [b,c] [a,c] [a,b] [c,b] [c,a] [b,a] [c,b] [a,c] [a,b] [c,b]
+*** Maude> 

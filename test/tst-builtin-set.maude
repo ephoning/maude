@@ -1,0 +1,13 @@
+fmod BUILTIN-SET{ X :: TRIV }  is
+
+    pr SET*{X} .
+
+endfm
+
+fmod TST-BUILTIN-SET is
+
+    sort State .
+    pr BUILTIN-SET{State} .
+
+endfm
+
