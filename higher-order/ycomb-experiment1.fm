@@ -25,7 +25,7 @@ fmod TEST-HOF-Y is
 
     eq Y F = F (Y F) .
 
-    *** an example: faculty
+    *** an example: factorial
     op fac : -> FY .
     eq fac F I = if I == 0 then 1 else I * (F (I - 1)) fi .	
 
