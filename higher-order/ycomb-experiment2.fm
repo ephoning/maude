@@ -5,7 +5,7 @@
 *** note: this implies we have to take a 'lazy eval' approach
 ***
 *** THIS WORKS!
-*** NOTE: this approach to, e.g., faculty calculation does not seem to to consume
+*** NOTE: this approach to, e.g., factorial calculation does not seem to to consume
 ***       a lot of) stack space => we can call 'fac' with arbitrary high argument value
 ***
 *** TODO: - check to see if ALL operators defined below have to be 'lazy'
@@ -28,7 +28,7 @@ fmod TEST-HOF-Y is
 
     eq Y F = F (Y F) .
 
-    *** an example: faculty
+    *** an example: factorial
     op fac : -> FY .
     eq fac F I = if I == 0 then 1 else I * (F (I - 1)) fi .	
 
